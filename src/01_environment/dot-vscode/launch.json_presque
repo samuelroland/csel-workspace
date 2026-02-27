@@ -24,13 +24,13 @@
           "ignoreFailures": true
         }
       ],
-      // "miDebuggerServerAddress": "192.168.0.14:1234",
+      // "miDebuggerServerAddress": "192.168.53.14:1234",
       // "miDebuggerPath": "/buildroot/output/host/bin/aarch64-linux-gdb",
       "pipeTransport": {
         // "pipeCwd": "/usr/bin",
         "pipeProgram": "/usr/bin/ssh",
         "pipeArgs": [
-          "root@192.168.0.14"
+          "root@192.168.53.14"
         ],
         "debuggerPath": "/usr/bin/gdb"
         // "debuggerPath": "stdbuf -i0 -o0 -e0 /usr/bin/gdb"
