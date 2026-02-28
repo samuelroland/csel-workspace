@@ -5,7 +5,7 @@ ifeq ($(target),)
 target=nano
 endif
 
-CFLAGS=-Wall -Wextra -g -c -O0 -MD -std=gnu11
+CFLAGS=-Wall -Wextra -g -c -O0 -MD -std=gnu11 ${EXTRA_CFLAGS}
 
 TOOLCHAIN_PATH=/buildroot/output/host/usr/bin/
 TOOLCHAIN=$(TOOLCHAIN_PATH)aarch64-linux-
@@ -14,10 +14,10 @@ CFLAGS+=-mcpu=cortex-a53 -funwind-tables
 OBJDIR=.obj/nano
 EXEC=$(EXE)
 
-CC=$(TOOLCHAIN)gcc
-LD=$(TOOLCHAIN)gcc
-AR=$(TOOLCHAIN)ar
-STRIP=$(TOOLCHAIN)strip
+CC?=$(TOOLCHAIN)gcc
+LD?=$(TOOLCHAIN)gcc
+AR?=$(TOOLCHAIN)ar
+STRIP?=$(TOOLCHAIN)strip
 
 OBJDIR=.obj/$(target)
 OBJS= $(addprefix $(OBJDIR)/, $(SRCS:.c=.o))

@@ -2,20 +2,20 @@ EXE=procstat
 SRCS=$(wildcard *.c) 
 
 ifeq ($(TARGET), host)
-CC=gcc
-LD=gcc
-STRIP=strip
-CFLAGS=-Wall -Wextra -g -c -O0 -MD -std=c99
-OBJDIR=.obj/host
+CC?=gcc
+LD?=gcc
+STRIP?=strip
+CFLAGS=-Wall -Wextra -g -c -O0 -MD -std=c99 ${EXTRA_CFLAGS}
+OBJDIR?=.obj/host
 EXEC=$(EXE)_h
 
 else
 TOOLCHAIN_PATH=/buildroot/output/host/usr/bin/
 TOOLCHAIN=$(TOOLCHAIN_PATH)aarch64-buildroot-linux-gnu-
 
-CC=$(TOOLCHAIN)gcc
-LD=$(TOOLCHAIN)gcc
-STRIP=$(TOOLCHAIN)strip
+CC?=$(TOOLCHAIN)gcc
+LD?=$(TOOLCHAIN)gcc
+STRIP?=$(TOOLCHAIN)strip
 
 CFLAGS+=-pedantic -Wall -Wextra -g -c -mcpu=cortex-a53 -O0 -MD -std=gnu11
 CPPFLAGS+=-pedantic -Wall -Wextra -g -c -mcpu=cortex-a53 -O0 -MD -std=gnu11
