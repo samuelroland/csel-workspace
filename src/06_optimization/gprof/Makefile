@@ -1,5 +1,5 @@
 CC?=gcc
-CFLAGS=-std=c11 -Wall -pg
+CFLAGS=-std=c11 -Wall -pg ${EXTRA_CFLAGS}
 SOURCES=$(wildcard *.c)
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=example-gprof

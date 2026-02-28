@@ -1,5 +1,5 @@
 CC?=gcc
-CFLAGS=-std=c11 -Wall -g -fprofile-arcs -ftest-coverage
+CFLAGS=-std=c11 -Wall -g -fprofile-arcs -ftest-coverage ${EXTRA_CFLAGS}
 SOURCES=$(wildcard *.c)
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=example-gcov

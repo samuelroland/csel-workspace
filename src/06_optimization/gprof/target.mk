@@ -5,7 +5,7 @@ ifeq ($(target),)
 target=nano
 endif
 
-CFLAGS=-Wall -Wextra -g -c -O1 -MD -std=gnu11 -D_GNU_SOURCE -pg
+CFLAGS=-Wall -Wextra -g -c -O1 -MD -std=gnu11 -D_GNU_SOURCE -pg ${EXTRA_CFLAGS}
 
 ifeq ($(target),nano)
 TOOLCHAIN_PATH=/buildroot/output/host/usr/bin/
@@ -29,11 +29,11 @@ OBJDIR=.obj/xu3
 EXEC=$(EXE)_a
 endif
 
-CC=$(TOOLCHAIN)gcc
-LD=$(TOOLCHAIN)gcc
-AR=$(TOOLCHAIN)ar
-STRIP=$(TOOLCHAIN)strip
-OBJDUMP=$(TOOLCHAIN)objdump
+CC?=$(TOOLCHAIN)gcc
+LD?=$(TOOLCHAIN)gcc
+AR?=$(TOOLCHAIN)ar
+STRIP?=$(TOOLCHAIN)strip
+OBJDUMP?=$(TOOLCHAIN)objdump
 
 OBJDIR=.obj/$(target)
 OBJS= $(addprefix $(OBJDIR)/, $(SRCS:.c=.o))

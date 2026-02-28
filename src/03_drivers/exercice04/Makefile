@@ -8,10 +8,10 @@ CFLAGS+=-mcpu=cortex-a53 -funwind-tables
 
 OBJDIR=.obj
 
-CC=$(TOOLCHAIN)gcc
-LD=$(TOOLCHAIN)gcc
-AR=$(TOOLCHAIN)ar
-STRIP=$(TOOLCHAIN)strip
+CC?=$(TOOLCHAIN)gcc
+LD?=$(TOOLCHAIN)gcc
+AR?=$(TOOLCHAIN)ar
+STRIP?=$(TOOLCHAIN)strip
 OBJS+=$(addprefix $(OBJDIR)/, $(SRCS:.c=.o))
 
 .PHONY: all clean

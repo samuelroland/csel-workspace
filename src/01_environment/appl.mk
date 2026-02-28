@@ -12,10 +12,10 @@ ifeq ($(target),host)
 EXEC=$(EXE)_h
 endif
 
-CC=$(TOOLCHAIN)gcc
-LD=$(TOOLCHAIN)gcc
-AR=$(TOOLCHAIN)ar
-STRIP=$(TOOLCHAIN)strip
+CC?=$(TOOLCHAIN)gcc
+LD?=$(TOOLCHAIN)gcc
+AR?=$(TOOLCHAIN)ar
+STRIP?=$(TOOLCHAIN)strip
 
 OBJDIR=.obj/$(target)
 OBJS= $(addprefix $(OBJDIR)/, $(SRCS:.c=.o))

@@ -7,14 +7,14 @@ target=nano
 TOOLCHAIN_PATH=/buildroot/output/host/usr/bin/
 TOOLCHAIN=$(TOOLCHAIN_PATH)aarch64-linux-
 CFLAGS=-Wall -Wextra -g -c -O0 -MD -std=gnu11
-CFLAGS+=-mcpu=cortex-a53 -funwind-tables
+CFLAGS+=-mcpu=cortex-a53 -funwind-tables ${EXTRA_CFLAGS}
 ##CFLAGS+=-O2 -fno-omit-frame-pointer
 OBJDIR=.obj/nano
 
-CC=$(TOOLCHAIN)gcc
-LD=$(TOOLCHAIN)gcc
-AR=$(TOOLCHAIN)ar
-STRIP=$(TOOLCHAIN)strip
+CC?=$(TOOLCHAIN)gcc
+LD?=$(TOOLCHAIN)gcc
+AR?=$(TOOLCHAIN)ar
+STRIP?=$(TOOLCHAIN)strip
 
 OBJDIR=.obj/$(target)
 OBJS= $(addprefix $(OBJDIR)/, $(SRCS:.c=.o))
