@@ -35,3 +35,4 @@ src/**/build
 /SOLUTION
 output
 boot-scripts/boot.cifs
+boot-scripts/boot.net
