@@ -34,3 +34,4 @@ src/**/build
 
 /SOLUTION
 output
+boot-scripts/boot.cifs
