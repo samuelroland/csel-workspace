@@ -1,5 +1,59 @@
 = Embedded Linux Environment
 
+== Questions
+
++ Comment faut-il procéder pour générer l’U-Boot ?
+
+On peut modifier u-boot avec `make uboot-menuconfig`.
+Une fois u-boot modifié, relancer `make`, permet de rebuilder les packages modifiés, dont u-boot.
+Ou bien, `make uboot-rebuild` permet de rebuilder `uboot` seulement.
+
++ Comment peut-on ajouter et générer un package supplémentaire dans le Buildroot ?
+
+On peut ajouter un nouveau package depuis le dossier `output` avec `make menuconfig`. 
+Dans le menu on peut séléctionner le(s) nouveau(x) package(s) à ajouter.
+
++ Comment doit-on procéder pour modifier la configuration du noyau Linux ?
+
+La configuration du noyau linux se fait avec `make linux-menuconfig`. 
+
++ Comment faut-il faire pour générer son propre rootfs ?
+
+On configure le système via `make menuconfig` (choix du filesystem overlay, des packages, init system, etc.),
+on peut ajouter un rootfs overlay (répertoire copié tel quel dans le rootfs final), on lance `make` pour générer l'image
+Le `rootfs` généré se trouve dans `output/images/` (ex: rootfs.tar, rootfs.ext4, etc.)
+
++ Comment faudrait-il procéder pour utiliser la carte eMMC en lieu et place de la carte SD ?
+
+Flasher le contenu sur l'eMMC, avant de booter dessus, il faut y écrire l'image avec éventuellemnt le rootfs, le kernel et DTB:
+
+Ceci doit être fait depuis la cible, après avoir `mount` la flash dans `/dev/mmcblk1p2`
+
+```bash
+dd if=image.ext4 of=/dev/mmcblk1p2 bs=1M
+```
+
+Créer un nouveau boot script `boot.cmd` similaire à celui par défaut qui est fourni dans la définition de la board avec les bons paramètres:
+
+```bash
+setenv bootargs console=ttyS0,115200 earlyprintk root=/dev/mmcblk1p2 rootwait
+fatload mmc 0 $kernel_addr_r Image
+fatload mmc 0 $fdt_addr_r nanopi-neo-plus2.dtb
+booti $kernel_addr_r - $fdt_addr_r
+```
+
+La différence clé est l'utilisation de `root=/dev/mmcblk1p2` à la place de `root=/dev/mmcblk2p2`.
+
+Regénérer le `boot.scr`, U-Boot ne lit pas directement le boot.cmd mais sa version compilée :
+
+```bash
+mkimage -C none -A arm -T script -d boot.cmd boot.scr
+```
+
++ Dans le support de cours, on trouve différentes configurations de l’environnement de développement. Quelle serait la configuration optimale pour le développement uniquement d’applications en espace utilisateur ?
+
+La façon optimale est d'avoir un kernel chargé depuis la carte SD et le rootfs chargé depuis le réseau, cela permet de facilement tester des nouvelles configurations user-space rootfs sans prolonger le boot de façon inutile.
+
 == Adaptations to the original laboratory instructions
 
 #block(
