@@ -365,3 +365,161 @@ Pour corriger il suffit d'utilser le bon `dev_t`:
 > insmod mymodule.ko 
 > rmmod mymodule
 ```
+
+#line()
+
+== Exercice 7
+
+#rect([
+Développer un pilote et une application utilisant les entrées/sorties bloquantes pour signaler une interruption matérielle provenant de l’un des switches de la carte d’extension du NanoPI. L’application utilisera le service select pour compter le nombre d’interruptions.
+])
+
+Le pilote d'exemple contient un bug, si un des IRQ n'est pas enregistré correctement `devm_request_irq` ne retourne pas `0`, le `misc_device` n'est pas effacé. A ce point, une entrée `sysfs` dans `/sys/class/misc/mymodule` persistera et l'enregistrement suivant va directement rater au moment du `misc_register`.
+
+Pour le résoudre il suffit de vérifier si `status != 0` pour appeler `misc_deregister`:
+
+```c
+    ...
+    if (status) {
+        misc_deregister(&misc_device);
+    }
+    pr_info("Linux module skeleton loaded(status=%d)\n", status);
+    return status;
+```
+
+De plus, le pilote donné en exemple ne permet pas de lire la valeur du bouton pressé, pour ajouter cette fonctionnalité, le code suivant a été ajouté:
+
+1. Utilisation de `static const int` à la place de `#define`, permettant le passage d'un pointeur sur l'identifiant du bouton à l'irq:
+
+
+```c
+static const int K1 = 0;
+static const int K2 = 2;
+static const int K3 = 3;
+```
+
+On peut donc passer des pointeurs sur ces variables sur le paramètre `dev_id`. Exemple pour `K1`:
+
+```c
+    devm_request_irq(misc_device.this_device,
+                         gpio_to_irq(K1),
+                         gpio_isr,
+                         IRQF_TRIGGER_FALLING | IRQF_SHARED,
+                         k1,
+                         (void*)&K1);
+```
+
+Ceci est nécéssaire car les IRQs sont du type `shared`, alor linux oblige que `dev_id` ne soit pas `NULL`. Comme `K1` vaut `0`, ceci est interprète comme NULL et le `irq` n'est pas enregistré (error -22). Si l'IRQ n'était pas `SHARED`, on aurait pu tout simplement passer la valeur dans le pointeur:
+
+```c
+    #define K1 0
+    devm_request_irq(..., (void*)(uintptr_t)K1);
+```
+
+2. Stockage de l'identifiant du bouton lors de l'irq:
+
+```c
+static int last_key;
+
+irqreturn_t gpio_isr(int irq, void* handle)
+{
+    int key = *(int*)handle;
+    atomic_inc(&nb_of_interrupts);
+    last_key = key;
+    wake_up_interruptible(&queue);
+
+    pr_info("interrupt %d raised...\n", key);
+
+    return IRQ_HANDLED;
+}
+```
+
+3. Ajout de la possibilité de lecture de `last_key` dans la callback `read`:
+
+```c
+static ssize_t skeleton_read(struct file* f, char __user* buf, size_t sz, loff_t* off) 
+{
+    char tmp[sizeof(int) + 1];
+    int bytes;
+
+    if (sz < sizeof(tmp)) {
+        pr_err("sz is too small to hold buffer");
+        return -EINVAL;
+    }
+
+    bytes = sprintf(tmp, "%d", last_key);
+    if (copy_to_user(buf, tmp, bytes + 1)) {
+        return -EFAULT;
+    }
+    return bytes + 1;
+}
+```
+
+
+Avec ces ajouts dans le driver, l'application user space suivante peut alors utiliser `poll` pour attendre la pression d'un bouton et afficher par la suite le bouton pressé:
+
+```c
+
+
+#include <errno.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/poll.h>
+#include <unistd.h>
+
+#define DEV_NAME "/dev/mymodule"
+
+int main(void)
+{
+    int fd = open(DEV_NAME, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "failed to open %s (%s)", DEV_NAME, strerror(errno));
+        return EXIT_FAILURE;
+    }
+
+    printf("Press any (physical) button\n");
+    struct pollfd fds = {.fd = fd, .events = POLLIN};
+
+    int ret = poll(&fds, 1, -1);
+    if (ret < 1) {
+        fprintf(stderr, "poll failed: %s\n", strerror(errno));
+        close(fd);
+        return EXIT_FAILURE;
+    }
+    char tmp[8];
+    ret = read(fd, tmp, sizeof(tmp));
+    if (ret <= 0) {
+        fprintf(
+            stderr, "Button pressed but couldn't read what it was %d\n", ret);
+        close(fd);
+        return EXIT_FAILURE;
+    }
+    printf("You pressed button %s!\n", tmp);
+    close(fd);
+    return EXIT_SUCCESS;
+}
+```
+
+```sh
+> ./app
+Press any (physical) button
+You pressed button 3!
+> ./app
+Press any (physical) button
+You pressed button 3!
+> ./app
+Press any (physical) button
+You pressed button 2!
+> ./app
+Press any (physical) button
+You pressed button 2!
+> ./app
+Press any (physical) button
+You pressed button 0!
+```
+
+Le manque d'anti-rebond est bien présent, car pas tous les lancements de l'application `app` bloquent pour attendre la pression d'un bouton.
+
