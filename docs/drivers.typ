@@ -119,6 +119,8 @@ static int __init skeleton_init(void)
 }
 ```
 
+#line()
+
 == Exercice 3
 
 #rect([
@@ -260,6 +262,8 @@ test1
 test2
 ```
 
+#line()
+
 == Exercice 4
 
 #rect([
@@ -310,4 +314,54 @@ static struct file_operations skeleton_fops = {
     ...
     .llseek  = skeleton_llseek,
 };
+```
+
+#line()
+
+== Exercice 5
+
+#rect([
+Développer un pilote de périphérique orienté caractère permettant de valider la fonctionnalité du sysfs. Le pilote offrira quelques attributs pouvant être lus et écrites avec les commandes echo et cat. Ces attributs seront disponibles sous l’arborescence /sys/class/....
+
+Dans un premier temps, implémentez juste ce qu’il faut pour créer une nouvelle classe (par exemple : my_sysfs_class)
+])
+
+Aucun problème avec la solution proposée
+
+== Exercice 5.1
+
+#rect([
+
+Ajoutez maintenant les opérations sur les fichiers définies à l’exercice #3. Vous pouvez définir une classe comme dans l’exercice précédent, ou vous pouvez utiliser un platform_device, ou encore un miscdevice.
+])
+
+Pour cet exercice, la solution contient un problème où le driver n'est pas déinitialisé correctement.
+Ceci peut être vérifié en insérant le module, en l'enlevant et finalement en l'insérant à nouveau.
+
+```sh
+> insmod mymodule.ko 
+> rmmod mymodule
+> insmod mymodule.ko 
+Segmentation fault
+```
+
+Le problème est l'appel à la fonction `device_destroy()`:
+
+```c
+    device_destroy(sysfs_class, 0);
+```
+
+Ceci essaye de détruire le device MAJOR:MINOR 0:0 ce qui ne correspond pas au device crée précedemment.
+
+Pour corriger il suffit d'utilser le bon `dev_t`:
+
+```c
+    device_destroy(sysfs_class, skeleton_dev);
+```
+
+```sh
+> insmod mymodule.ko 
+> rmmod mymodule
+> insmod mymodule.ko 
+> rmmod mymodule
 ```

@@ -1,18 +1,16 @@
 /* skeleton.c */
+#include <linux/cdev.h>   /* needed for char device driver */
+#include <linux/device.h> /* needed for sysfs handling */
+#include <linux/fs.h>     /* needed for device drivers */
 #include <linux/init.h>   /* needed for macros */
 #include <linux/kernel.h> /* needed for debugging */
-#include <linux/module.h> /* needed by all modules */
-
-#include <linux/cdev.h>    /* needed for char device driver */
-#include <linux/fs.h>      /* needed for device drivers */
-#include <linux/uaccess.h> /* needed to copy data to/from user */
-
-#include <linux/device.h> /* needed for sysfs handling */
 #include <linux/miscdevice.h>
+#include <linux/module.h>          /* needed by all modules */
 #include <linux/platform_device.h> /* needed for sysfs handling */
+#include <linux/uaccess.h>         /* needed to copy data to/from user */
 
-//#define MISC
-//#define PLATFORM
+// #define MISC
+// #define PLATFORM
 #define CLASS
 
 struct skeleton_config {
@@ -69,26 +67,22 @@ ssize_t sysfs_store_cfg(struct device* dev,
 }
 DEVICE_ATTR(cfg, 0664, sysfs_show_cfg, sysfs_store_cfg);
 
-
 #ifdef MISC
 static struct miscdevice misc_device = {
     .minor = MISC_DYNAMIC_MINOR,
-    .name = "mymodule",
-    .mode = 0,
+    .name  = "mymodule",
+    .mode  = 0,
 };
 #endif
 
 #ifdef PLATFORM
-static void sysfs_dev_release (struct device *dev)
+static void sysfs_dev_release(struct device* dev)
 {
-    pr_info ("skeleton - sysfs dev release\n");
+    pr_info("skeleton - sysfs dev release\n");
 }
 
 static struct platform_device platform_device = {
-    .name = "mymodule",
-    .id = -1,
-    .dev.release = sysfs_dev_release
-};
+    .name = "mymodule", .id = -1, .dev.release = sysfs_dev_release};
 #endif
 
 #ifdef CLASS
@@ -102,21 +96,25 @@ static int __init skeleton_init(void)
 
 #ifdef MISC
     if (status == 0) status = misc_register(&misc_device);
-    if (status == 0) status = device_create_file(misc_device.this_device, &dev_attr_val);
-    if (status == 0) status = device_create_file(misc_device.this_device, &dev_attr_cfg);
+    if (status == 0)
+        status = device_create_file(misc_device.this_device, &dev_attr_val);
+    if (status == 0)
+        status = device_create_file(misc_device.this_device, &dev_attr_cfg);
 #endif
 
 #ifdef PLATFORM
-	if (status == 0) status = platform_device_register (&platform_device);
-    if (status == 0) status = device_create_file (&platform_device.dev, &dev_attr_val);
- 	if (status == 0) status = device_create_file (&platform_device.dev, &dev_attr_cfg);
+    if (status == 0) status = platform_device_register(&platform_device);
+    if (status == 0)
+        status = device_create_file(&platform_device.dev, &dev_attr_val);
+    if (status == 0)
+        status = device_create_file(&platform_device.dev, &dev_attr_cfg);
 #endif
 
 #ifdef CLASS
-    sysfs_class = class_create(THIS_MODULE, "my_sysfs_class");
+    sysfs_class  = class_create(THIS_MODULE, "my_sysfs_class");
     sysfs_device = device_create(sysfs_class, NULL, 0, NULL, "my_sysfs_device");
     if (status == 0) status = device_create_file(sysfs_device, &dev_attr_val);
- 	if (status == 0) status = device_create_file(sysfs_device, &dev_attr_cfg);
+    if (status == 0) status = device_create_file(sysfs_device, &dev_attr_cfg);
 #endif
 
     pr_info("Linux module skeleton loaded\n");
@@ -130,9 +128,9 @@ static void __exit skeleton_exit(void)
 #endif
 
 #ifdef PLATFORM
-	device_remove_file (&platform_device.dev, &dev_attr_cfg);
-	device_remove_file (&platform_device.dev, &dev_attr_val);
-	platform_device_unregister (&platform_device);
+    device_remove_file(&platform_device.dev, &dev_attr_cfg);
+    device_remove_file(&platform_device.dev, &dev_attr_val);
+    platform_device_unregister(&platform_device);
 #endif
 
 #ifdef CLASS
