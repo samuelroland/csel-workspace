@@ -59,8 +59,8 @@ static int __init skeleton_init(void)
             readl(temperature_mapped_addr_base + 0x80);
         int real_temperature_celsius =
             (-1191 * (temperature_register / 10) + 223000);
-        // Note: for 38.395 it gives us 38395 and we cannot printf float values,
-        // so we calculate the integer and decimals parts oursefl
+        // Note: for 38.395 degrees it gives us 38395 and we cannot printk with
+        // %f values, so we calculate the integer and decimals parts ourself
         unsigned real_temperature_celsius_int = real_temperature_celsius / 1000;
         unsigned real_temperature_celsius_decimals =
             real_temperature_celsius % 1000;

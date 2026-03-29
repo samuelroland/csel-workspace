@@ -215,16 +215,6 @@ static void __exit skeleton_exit(void) {
 ```
 
 == Exercice 5
-En testant l'approche naive de directement lire à l'adresse physique...
-```c
-    pr_info("Linux module skeleton unloaded\n");
-    int* chipid = 0x01c14200;
-    pr_info("CHIPID = %d-%d-%d-%d", chipid[0], chipid[1], chipid[2], chipid[3])
-```
-on génère un joli crash:
-```
-[15033.672532] Unable to handle kernel paging request at virtual address 0000000001c1420c
-```
 
 Pourquoi dans la solution, le mappage prend une taille de 4096 bytes alors que selon la datasheet `SID 0x01C1 4000---0x01C1 43FF 1K`, il semble que la zone ne fait que 1024 bytes ?
 ```c
@@ -238,10 +228,41 @@ On peut confirmer le mapping via `request_mem_region`
 01c14000-01c143ff : ChipID mapping via the 1K zone for SID
 ...
 ```
-
+Nous avions le problème de ne pas arriver à réserver la zone pour le capteur de temperature.
 ```c
+// Note: this will fail because another module has already requested this
+region reserved_zones[1] = request_mem_region(THERMAL_SENSOR_START_ADDR, 1024, "Thermal sensor mapping via the 1K zone");
 ```
+
+Nous avons pu le confirmer via `/proc/iomem`.
 ```c
+> cat /proc/iomem  | grep 01c25
+01c25000-01c253ff : 1c25000.thermal-sensor thermal-sensor@1c25000
+```
+Il est maintenant clair de pourquoi la solution contient les lignes commentées de ces réservations.
+
+Nous avions aussi commencé par mapper le minimum, pour le chip id, c'était les 16 bytes `ioremap (0x01c14200, 16);` mais cela ne fonctionnait pas..
+
+Après pas mal d'effort, de coup d'oeil dans la cheatsheet pour comprendre d'où venait ces addresses, de coup d'oeil à la solution pour comprendre l'extraction des bytes, nous avons réussi à sortir les 3 informations.
+```
+[ 4043.595525] CHIPID = 82800001-94004704-5036c304-302c0c0e
+[ 4043.603716] temperature register = 1563 and real temperature 37.204 degrees Celsius
+[ 4043.611384] MAC address = 02:01:75:7b:97:8c
+```
+
+Nous avons implémenté à la main l'affichage à virgule de la temperature puisque le `%f` n'est pas supporté par `printk`. Un autre élément intéressant pour tester au plus vite les modifications est la mise en place d'un mode watch, à l'aide de `entr`.
+
+```sh
+> cat test_exo5.sh
+ssh root@192.168.53.14 <<EOF
+cd /workspace/src/02_modules/exercice05
+insmod mymodule.ko
+echo stopping
+rmmod mymodule
+dmesg -c # read + clean ring buffer
+EOF
+> ls skeleton*.c | entr -c -c -r bash -c "make && clear && ./test_exo5.sh"
+# à chaque changement du fichier C, le code compile et se relance sur la carte.
 ```
 
 == Exercice 6
