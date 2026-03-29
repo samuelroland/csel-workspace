@@ -5,7 +5,8 @@
 #rect([
   Générez un module noyau out of tree pour la cible NanoPi
 ])
-Pas de problème sur cette partie.
+
+Sur la section #link("https://mse-csel.github.io/website/lecture/programmation-noyau/modules/module-gen/#generation-out-of-tree")[Génération «out of tree»] du support de cours, le chemin des compilateurs est \ `TOOLS := /buildroot/output/host/usr/bin/aarch64-linux-gnu-` \ et Samuel a du le corriger avec \ `TOOLS := /buildroot/output/host/usr/bin/aarch64-buildroot-linux-gnu-`.
 
 On retrouve bien les informations du module définies par les macros `MODULE_*`.
 ```sh
@@ -35,6 +36,17 @@ brcmfmac 253952 0 - Live 0xffff80000110e000
 ```
 Notre module `mymodule` est bien activé.
 
+Pour le convertir en module inside tree, nous avons testé de faire un lien symbolique à notre module actuel. La situation est particulière ici comme nous avons le même code, en pratique cela ne fonctionnerait pas. (Au moment de la contribution du lien symbolique qui pointe sur rien, on aurait des gentils commentaires de Linus...).
+```sh
+> pwd
+/workspace/src/02_modules/exo1
+> ln -s $PWD/skeleton.c /buildroot/output/build/linux-5.15.148/drivers/misc/mymodule.c
+```
+Après changement du `Makefile` et `Kconfig` mentionné, recompilation et extraction du rootfs, le module peut être lancé avec `modprobe`.
+
+Nous avons aussi vu une typo dans `Génération «inside tree»`: `Voir ./Documenation/kbuild pour plus de détails ...`
+
+
 === Exercice 2
 
 Note: la solution donnée devrait être dans un dossier `exercice02` séparé de `exercice01`.
@@ -59,6 +71,8 @@ static int __init skeleton_init(void) {
 
 Leur usage fonctionne sans problème.
 ```sh
+> pwd
+/workspace/src/02_modules/exo1
 > insmod mymodule.ko firstname=Samuel lastname=Roland min_temperature=23
 [  831.673401] Linux module loaded !
 [  831.676797] You are Samuel Roland and your prefered min temperature is 23 !
@@ -67,39 +81,7 @@ Leur usage fonctionne sans problème.
 [  835.686943] Byebye Samuel Roland
 ```
 
-Problem:
-The default entry is the course material is
-```sh
-TOOLS := /buildroot/output/host/usr/bin/aarch64-linux-gnu-
-```
-
-but should be
-```sh
-TOOLS := /buildroot/output/host/usr/bin/aarch64-buildroot-linux-gnu-
-```
-
-
-```sh
-> pwd
-/workspace/src/02_modules/exo1
-> ln -s $PWD/skeleton.c /buildroot/output/build/linux-5.15.148/drivers/misc/mymodule.c
-```
-
-I had to do this to get the latest rootfs
-```sh
-/usr/local/bin/extract-rootfs.sh
-```
-
-```sh
-# pwd
-/workspace/src/02_modules/exo1
-# insmod mymodule.ko firstname=Samuel lastname=Roland min_temperature=23
-[ 2324.897330] Linux module loaded !
-[ 2324.900729] You are Samuel Roland and your prefered min temperature is 23 !
-```
-
-
-Pourquoi la solution contient ce changement de PATH ???
+Par contre il n'est pas clair de pourquoi la solution fournie contient ce changement de PATH, qui n'est pas présent dans le support de cours sous `Génération «out of tree»` ?
 ```sh
 export PATH := /buildroot/output/host/usr/sbin$\
     :/buildroot/output/host/usr/bin/$\
@@ -110,15 +92,85 @@ export PATH := /buildroot/output/host/usr/sbin$\
 
 == Exercice 3
 
-The answer is available on https://docs.kernel.org/core-api/printk-basics.html
+La réponse est disponible sur https://docs.kernel.org/core-api/printk-basics.html
 
-> The result shows the current, default, minimum and boot-time-default log levels.
+#quote("The result shows the current, default, minimum and boot-time-default log levels.")
 ```sh
 # cat /proc/sys/kernel/printk
 7	4	1	7
 ```
--> DEBUG in current mode - WARNING by default - ALERT at minimum - DEBUG at boot time
+En interprétant les niveaux de logs, nous avons DEBUG en mode actuel, WARNING par défaut, ALERT au minimum et DEBUG au démarrage. Ces niveaux de logs indique le niveau à partir duquel il ne faut plus afficher les messages dans la console. Ainsi, `dmesg` permet toujours d'accéder aux messages stockés même si une partie pourraient ne pas avoir été visible au moment de leur création.
 
+Pour confirmer notre compréhensions de ces paramètres, voici un POC qui confirme notre logique.
+
+```c
+static int __init skeleton_init(void)
+{
+    struct rtc_time t = rtc_ktime_to_tm(ktime_get_real());
+    pr_info("Linux module loaded !\n");
+    pr_emerg("Testing various logs levels at %ptRs\n", &t);
+
+    pr_emerg("LOG with level 0 KERN_EMERG");
+    pr_alert("LOG with level 1 KERN_ALERT");
+    pr_crit("LOG with level 2 KERN_CRIT");
+    pr_err("LOG with level 3 KERN_ERR");
+    pr_warn("LOG with level 4 KERN_WARNING");
+    pr_notice("LOG with level 5 KERN_NOTICE");
+    pr_info("LOG with level 6 KERN_INFO");
+    pr_info("LOG with level 7 KERN_DEBUG\n");
+    return 0;
+}
+
+static void __exit skeleton_exit(void) { pr_info("Linux module unloaded !\n"); }
+```
+
+Le niveau actuel étant 7, tous les messages s'affichent.
+```sh
+> cat /proc/sys/kernel/printk && insmod mymodule.ko; echo stopping; rmmod mymodule
+7	4	1	7
+[12503.450256] Linux module loaded !
+[12503.453650] Testing various logs levels at 1970-01-01 03:58:30
+[12503.459509] LOG with level 0 KERN_EMERG
+[12503.459513] LOG with level 1 KERN_ALERT
+[12503.463354] LOG with level 2 KERN_CRIT
+[12503.467187] LOG with level 3 KERN_ERR
+[12503.470943] LOG with level 4 KERN_WARNING
+[12503.474610] LOG with level 5 KERN_NOTICE
+[12503.478626] LOG with level 6 KERN_INFO
+[12503.482553] LOG with level 7 KERN_DEBUG
+stopping
+[12503.502662] Linux module unloaded !
+```
+
+En passant au niveau 4, on voit tous les messages inférieur au niveau 4 (0-3). Il est un peu curieux que cela soit différent avec le niveau 7, où on se serait attendu à avoir la même logique (de 0-6 au lieu de 0-7).
+```sh
+> echo 4 > /proc/sys/kernel/printk
+> cat /proc/sys/kernel/printk && insmod mymodule.ko; echo stopping; rmmod mymodule
+4	4	1	7
+[12879.379819] Testing various logs levels at 1970-01-01 04:04:46
+[12879.385698] LOG with level 0 KERN_EMERG
+[12879.385702] LOG with level 1 KERN_ALERT
+[12879.389547] LOG with level 2 KERN_CRIT
+[12879.393394] LOG with level 3 KERN_ERR
+stopping
+```
+
+En inspectant `dmesg`, les messages suivants (4-7) n'ont pas été ignorés, ils ont bien été stocké sans être affiché dans la console.
+```sh
+> dmesg
+...
+[12879.379791] Linux module loaded !
+[12879.379819] Testing various logs levels at 1970-01-01 04:04:46
+[12879.385698] LOG with level 0 KERN_EMERG
+[12879.385702] LOG with level 1 KERN_ALERT
+[12879.389547] LOG with level 2 KERN_CRIT
+[12879.393394] LOG with level 3 KERN_ERR
+[12879.397148] LOG with level 4 KERN_WARNING
+[12879.400816] LOG with level 5 KERN_NOTICE
+[12879.400821] LOG with level 6 KERN_INFO
+[12879.400824] LOG with level 7 KERN_DEBUG
+[12879.415250] Linux module unloaded !
+```
 
 == Exercice 4
 This part is working fine, we managed to allocate using `kzmalloc`
