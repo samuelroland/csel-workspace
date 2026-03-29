@@ -96,7 +96,7 @@ La réponse est disponible sur https://docs.kernel.org/core-api/printk-basics.ht
 
 #quote("The result shows the current, default, minimum and boot-time-default log levels.")
 ```sh
-# cat /proc/sys/kernel/printk
+> cat /proc/sys/kernel/printk
 7	4	1	7
 ```
 En interprétant les niveaux de logs, nous avons DEBUG en mode actuel, WARNING par défaut, ALERT au minimum et DEBUG au démarrage. Ces niveaux de logs indique le niveau à partir duquel il ne faut plus afficher les messages dans la console. Ainsi, `dmesg` permet toujours d'accéder aux messages stockés même si une partie pourraient ne pas avoir été visible au moment de leur création.
@@ -104,8 +104,7 @@ En interprétant les niveaux de logs, nous avons DEBUG en mode actuel, WARNING p
 Pour confirmer notre compréhensions de ces paramètres, voici un POC qui confirme notre logique.
 
 ```c
-static int __init skeleton_init(void)
-{
+static int __init skeleton_init(void) {
     struct rtc_time t = rtc_ktime_to_tm(ktime_get_real());
     pr_info("Linux module loaded !\n");
     pr_emerg("Testing various logs levels at %ptRs\n", &t);
@@ -172,10 +171,12 @@ En inspectant `dmesg`, les messages suivants (4-7) n'ont pas été ignorés, ils
 [12879.415250] Linux module unloaded !
 ```
 
+L'autre point intéressant est que la console du kernel est visible en connexion série, mais n'est pas visible quand on se connecte en SSH.
+
 == Exercice 4
-This part is working fine, we managed to allocate using `kzmalloc`
+Cette partie fonctionne sans problème, en allouant à l'aide de `kzmalloc`.
 ```sh
-# insmod mymodule.ko elements_count=5 default_text="YEP"
+> insmod mymodule.ko elements_count=5 default_text="YEP"
 [  693.209602] Linux module loaded !
 [  693.213023] Creating dynamically 5 elements with default text 'YEP'!
 [  693.219399] Allocating elements
@@ -185,7 +186,7 @@ This part is working fine, we managed to allocate using `kzmalloc`
 [  693.230856] ID=2, text=YEP
 [  693.233572] ID=3, text=YEP
 [  693.236288] ID=4, text=YEP
-# rmmod mymodule.ko
+> rmmod mymodule.ko
 [  697.254258] Freeing and removing elements from the list
 [  697.259564] Freeing element with ID=0
 [  697.263224] Freeing element with ID=1
@@ -195,11 +196,10 @@ This part is working fine, we managed to allocate using `kzmalloc`
 [  697.277926] Linux module unloaded !
 ```
 
-We have used `list_for_each_entry_safe` to safely navigate the list while removing the current element and freeing it.
+Nous avons utilisé `list_for_each_entry_safe` pour naviguer la liste de manière _safe_ tout en retirant l'élément actuel de la liste pour le _free_.
 
 ```c
-static void __exit skeleton_exit(void)
-{
+static void __exit skeleton_exit(void) {
     // This is based on https://docs.kernel.org/core-api/list.html#traversing-whilst-removing-nodes
     struct Element* curr;
     struct Element* temp_storage; /* temporary storage for safe iteration */
@@ -212,13 +212,39 @@ static void __exit skeleton_exit(void)
     }
     pr_info("Linux module unloaded !\n");
 }
-
 ```
 
-
 == Exercice 5
+En testant l'approche naive de directement lire à l'adresse physique...
+```c
+    pr_info("Linux module skeleton unloaded\n");
+    int* chipid = 0x01c14200;
+    pr_info("CHIPID = %d-%d-%d-%d", chipid[0], chipid[1], chipid[2], chipid[3])
+```
+on génère un joli crash:
+```
+[15033.672532] Unable to handle kernel paging request at virtual address 0000000001c1420c
+```
+
+Pourquoi dans la solution, le mappage prend une taille de 4096 bytes alors que selon la datasheet `SID 0x01C1 4000---0x01C1 43FF 1K`, il semble que la zone ne fait que 1024 bytes ?
+```c
+res[0] = request_mem_region (0x01c14000, 0x1000, "allwiner h5 sid");
+```
+
+On peut confirmer le mapping via `request_mem_region`
+```sh
+> cat /proc/iomem
+...
+01c14000-01c143ff : ChipID mapping via the 1K zone for SID
+...
+```
+
+```c
+```
+```c
+```
+
 == Exercice 6
 == Exercice 7
 == Exercice 8
-== Exercice 9
-== Exercice 10
+
