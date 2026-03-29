@@ -15,6 +15,10 @@
 // This is the base address of the thermal sensor given at page 277
 #define THERMAL_SENSOR_START_ADDR 0x01c25000
 
+// This is the base address of the EMAC (Ethernet MAC controller) given at
+// datasheet page 277
+#define EMAC_START_ADDR 0x01C30000
+
 struct resource* reserved_zones[3];
 unsigned chipid[4];
 
@@ -41,31 +45,47 @@ static int __init skeleton_init(void)
             // Les 4 registres de 32 bits du Chip - ID sont aux adresses
         }
     }
-    reserved_zones[1] =
-        request_mem_region(THERMAL_SENSOR_START_ADDR,
-                           1024,
-                           "Thermal sensor mapping via the 1K zone");
 
-    if (reserved_zones[1] != NULL) {
-        void* temperature_mapped_addr_base =
-            ioremap(THERMAL_SENSOR_START_ADDR, 1024);
-        if (temperature_mapped_addr_base != NULL) {
-            unsigned temperature_register =
-                readl(temperature_mapped_addr_base + 0x80);
-            int real_temperature_celsius =
-                -1191 * (temperature_register / 10) + 223000;
+    // Note: this will fail because another module has already requested this
+    // region reserved_zones[1] =
+    //     request_mem_region(THERMAL_SENSOR_START_ADDR,
+    //                        1024,
+    //                        "Thermal sensor mapping via the 1K zone");
 
-            pr_info(
-                "temperature register = %u and real temperature Celsius %d\n",
-                temperature_register,
-                real_temperature_celsius);
-        }
-    } else {
-        pr_info("Failed to reserve memory\n");
+    void* temperature_mapped_addr_base =
+        ioremap(THERMAL_SENSOR_START_ADDR, 1024);
+    if (temperature_mapped_addr_base != NULL) {
+        unsigned temperature_register =
+            readl(temperature_mapped_addr_base + 0x80);
+        int real_temperature_celsius =
+            (-1191 * (temperature_register / 10) + 223000);
+        // Note: for 38.395 it gives us 38395 and we cannot printf float values,
+        // so we calculate the integer and decimals parts oursefl
+        unsigned real_temperature_celsius_int = real_temperature_celsius / 1000;
+        unsigned real_temperature_celsius_decimals =
+            real_temperature_celsius % 1000;
+        pr_info(
+            "temperature register = %u and real temperature %u.%u degrees "
+            "Celsius\n",
+            temperature_register,
+            real_temperature_celsius_int,
+            real_temperature_celsius_decimals);
     }
-    // 0x01c1'4200 à 0x01c1'420c Le registre de 32 bits du senseur de
-    // température du CPU est à l’adresse 0x01c2'5080 Les 2 registres de 32
-    // bits de la MAC adresse sont aux adresses 0x01c3'0050 et 0x01c3'0054
+
+    void* emac_addr_base = ioremap(EMAC_START_ADDR, 1024);
+    if (emac_addr_base != NULL) {
+        unsigned mac[2];
+        mac[0] = readl(emac_addr_base + 0x50);
+        mac[1] = readl(emac_addr_base + 0x54);
+
+        pr_info("MAC address = %02x:%02x:%02x:%02x:%02x:%02x\n",
+                mac[1] & 0xFF,
+                (mac[1] >> 8) & 0xFF,
+                (mac[1] >> 16) & 0xFF,
+                (mac[1] >> 24) & 0xFF,
+                mac[0] & 0xFF,
+                (mac[0] >> 8) & 0xFF);
+    }
     return 0;
 }
 
