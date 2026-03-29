@@ -1,4 +1,5 @@
 #set page(margin: 1.5cm)
+#show link: text.with(fill: blue)
 
 // Display inline code in a small box with light gray backround that retains the correct baseline.
 #show raw.where(block: false): box.with(
@@ -24,6 +25,8 @@
 #align(center, text(size: 30pt)[Labos CSEL1 - partie 1])
 
 #text(size: 17pt)[Binôme: André Costa et Samuel Roland]
+
+Notre fork du repository Git est disponible sur #link("https://github.com/samuelroland/csel-workspace").
 
 #outline(title: "Table des matières")
 
