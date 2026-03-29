@@ -1,31 +1,30 @@
-// skeleton.c
-#include <linux/module.h>	// needed by all modules
-#include <linux/init.h>		// needed for macros
-#include <linux/kernel.h>	// needed for debugging
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/moduleparam.h>
 
-#include <linux/moduleparam.h>	// needed for module parameters
+static char* firstname = "?";
+static char* lastname = "?";
+static int min_temperature = 20;
+module_param(firstname, charp, 0);
+module_param(lastname, charp, 0);
+module_param(min_temperature, int, 0);
 
-static char* text = "dummy text";
-module_param(text, charp, 0664);
-static int  elements = 1;
-module_param(elements, int, 0);
-
-static int __init skeleton_init(void)
-{
-	pr_info ("Linux module 01 skeleton loaded\n");
-	pr_debug ("  text: %s\n  elements: %d\n", text, elements);
-	return 0;
+static int __init skeleton_init(void) {
+    pr_info("Linux module loaded !\n");
+    pr_info("You are %s %s and your prefered min temperature is %d !\n",
+            firstname, lastname, min_temperature);
+    return 0;
 }
 
-static void __exit skeleton_exit(void)
-{
-	pr_info ("Linux module skeleton unloaded\n");
+static void __exit skeleton_exit(void) {
+    pr_info("Linux module unloaded !\n");
+    pr_info("Byebye %s %s \n", firstname, lastname);
 }
 
-module_init (skeleton_init);
-module_exit (skeleton_exit);
+module_init(skeleton_init);
+module_exit(skeleton_exit);
 
-MODULE_AUTHOR ("Daniel Gachet <daniel.gachet@hefr.ch>");
-MODULE_DESCRIPTION ("Module skeleton");
-MODULE_LICENSE ("GPL");
-
+MODULE_AUTHOR("Samuel Roland");
+MODULE_DESCRIPTION("Empty module for testing");
+MODULE_LICENSE("GPL");
