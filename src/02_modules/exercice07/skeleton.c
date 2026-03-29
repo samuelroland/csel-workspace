@@ -6,24 +6,52 @@
 #include <linux/module.h>  /* needed by all modules */
 #include <linux/wait.h>    /* needed for waitqueues handling */
 
-int threadfn(void*) {
-    pr_info("Thread started !");
+DECLARE_WAIT_QUEUE_HEAD(queue);
+
+int sleeptime = true;
+
+int thread1(void*) {
+    pr_info("Thread 1 started !\n");
     while (!kthread_should_stop()) {
-        ssleep(5);
+        wait_event_interruptible(queue, !sleeptime);
+        pr_info("T1: Received tick from thread 2\n");
+        sleeptime = true;
     }
 
-    pr_info("Stopping thread");
+    pr_info("Stopping thread\n");
+    return 0;
 }
+
+int thread2(void*) {
+    pr_info("Thread 2 started !\n");
+    while (!kthread_should_stop()) {
+        ssleep(5);
+        pr_info("T2: Waking up thread 1\n");
+        sleeptime = false;  // so the thread 1 will go out of the waitqueue
+        wake_up(&queue);
+    }
+
+    wake_up(&queue);  // last wakeup to make sure thread 1 can exit
+    pr_info("Stopping thread 2\n");
+    return 0;
+}
+
+struct task_struct* thread1_handle;
+struct task_struct* thread2_handle;
 
 static int __init skeleton_init(void) {
     pr_info("Linux module 07 skeleton loaded\n");
 
-    kthread_run(threadfn, NULL, "Simple kthread");
+    thread1_handle = kthread_run(thread1, NULL, "Simple kthread 1");
+    thread2_handle = kthread_run(thread2, NULL, "Simple kthread 2");
 
     return 0;
 }
 
 static void __exit skeleton_exit(void) {
+    pr_info("Stopping both threads");
+    kthread_stop(thread1_handle);
+    kthread_stop(thread2_handle);
     pr_info("Linux module skeleton unloaded\n");
 }
 
