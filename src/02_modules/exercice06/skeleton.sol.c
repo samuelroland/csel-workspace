@@ -11,29 +11,31 @@
 #include <linux/slab.h>        /* needed for dynamic memory allocation */
 #include <linux/string.h>      /* needed for string handling */
 
-int threadfn(void*) {
-    pr_info("Thread started !\n");
+static struct task_struct* my_thread;
+
+static int skeleton_thread(void* data)
+{
+    pr_info("skeleton thread is now active...\n");
     while (!kthread_should_stop()) {
         ssleep(5);
-        pr_info("Tick from thread\n");
+        pr_info("skeleton thread is kick every 5 seconds...\n");
     }
-
-    pr_info("Stopping thread\n");
     return 0;
 }
 
-struct task_struct* thread;
-
-static int __init skeleton_init(void) {
+static int __init skeleton_init(void)
+{
     pr_info("Linux module 06 skeleton loaded\n");
 
-    thread = kthread_run(threadfn, NULL, "Simple kthread");
+    my_thread = kthread_run(skeleton_thread, 0, "s/thread");
 
     return 0;
 }
 
-static void __exit skeleton_exit(void) {
-    kthread_stop(thread);
+static void __exit skeleton_exit(void)
+{
+    kthread_stop(my_thread);
+
     pr_info("Linux module skeleton unloaded\n");
 }
 

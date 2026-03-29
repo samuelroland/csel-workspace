@@ -28,8 +28,9 @@ static int __init skeleton_init(void)
     // Reserver region for chipid
     reserved_zones[0] = request_mem_region(
         CHIPID_PAGE_START_ADDR, 1024, "ChipID mapping via the 1K zone for SID");
+    void* chipid_mapped_addr_base;
     if (reserved_zones[0] != NULL) {
-        void* chipid_mapped_addr_base = ioremap(CHIPID_PAGE_START_ADDR, 1024);
+        chipid_mapped_addr_base = ioremap(CHIPID_PAGE_START_ADDR, 1024);
         if (chipid_mapped_addr_base != NULL) {
             pr_info("mapped CHIPID !");
             chipid[0] = readl(chipid_mapped_addr_base + 0x200);
@@ -86,6 +87,10 @@ static int __init skeleton_init(void)
                 mac[0] & 0xFF,
                 (mac[0] >> 8) & 0xFF);
     }
+
+    iounmap(chipid_mapped_addr_base);
+    iounmap(temperature_mapped_addr_base);
+    iounmap(emac_addr_base);
     return 0;
 }
 

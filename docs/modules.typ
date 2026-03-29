@@ -173,7 +173,7 @@ En inspectant `dmesg`, les messages suivants (4-7) n'ont pas été ignorés, ils
 
 L'autre point intéressant est que la console du kernel est visible en connexion série, mais n'est pas visible quand on se connecte en SSH.
 
-== Exercice 4
+== Exercice 4 - Gestion de la mémoire, bibliothèque et fonction utile
 Cette partie fonctionne sans problème, en allouant à l'aide de `kzmalloc`.
 ```sh
 > insmod mymodule.ko elements_count=5 default_text="YEP"
@@ -214,7 +214,7 @@ static void __exit skeleton_exit(void) {
 }
 ```
 
-== Exercice 5
+== Exercice 5 - Accès aux entrées/sorties
 
 Pourquoi dans la solution, le mappage prend une taille de 4096 bytes alors que selon la datasheet `SID 0x01C1 4000---0x01C1 43FF 1K`, il semble que la zone ne fait que 1024 bytes ?
 ```c
@@ -243,7 +243,7 @@ Il est maintenant clair de pourquoi la solution contient les lignes commentées 
 
 Nous avions aussi commencé par mapper le minimum, pour le chip id, c'était les 16 bytes `ioremap (0x01c14200, 16);` mais cela ne fonctionnait pas..
 
-Après pas mal d'effort, de coup d'oeil dans la cheatsheet pour comprendre d'où venait ces addresses, de coup d'oeil à la solution pour comprendre l'extraction des bytes, nous avons réussi à sortir les 3 informations.
+Après pas mal d'effort, de coup d'oeil dans la cheatsheet pour comprendre d'où venait ces addresses, de coup d'oeil à la solution pour comprendre l'extraction des bytes, nous avons réussi à sortir les 3 informations. Sans le code de solution pour tester, nous n'aurions pas su que l'adresse MAC était en little endian.
 ```
 [ 4043.595525] CHIPID = 82800001-94004704-5036c304-302c0c0e
 [ 4043.603716] temperature register = 1563 and real temperature 37.204 degrees Celsius
@@ -262,10 +262,45 @@ rmmod mymodule
 dmesg -c # read + clean ring buffer
 EOF
 > ls skeleton*.c | entr -c -c -r bash -c "make && clear && ./test_exo5.sh"
-# à chaque changement du fichier C, le code compile et se relance sur la carte.
+# à chaque changement du fichier C, le code compile et se relance sur la carte et l'output est visible ici.
 ```
 
-== Exercice 6
-== Exercice 7
-== Exercice 8
+== Exercice 6 - Threads du noyau
+```sh
+> insmod mymodule.ko
+[ 4136.760510] Linux module 06 skeleton loaded
+[ 4136.771303] Thread started !
+>
+[ 4141.793734] Tick from thread
+[ 4146.910610] Tick from thread
+
+> ls
+Makefile	mymodule.ko	mymodule.mod.o	skeleton.o	watch.sh
+Module.symvers	mymodule.mod	mymodule.o	skeleton.sol.c
+modules.order	mymodule.mod.c	skeleton.c	test_exo6.sh
+[ 4152.030698] Tick from thread
+```
+Le thread actif est bien visible avec `ps`.
+```sh
+> ps -aux
+...
+14801 ?        D      0:00 [Simple kthread]
+...
+```
+
+Retirer le module gère l'arrêt correctement.
+```sh
+> rmmod mymodule
+[ 4310.654599] Tick from thread
+[ 4310.657545] Stopping thread
+[ 4310.662684] Linux module skeleton unloaded
+
+# pas d'autres messages ensuite.
+```
+
+== Exercice 7 - Mise en sommeil
+
+```
+```
+== Exercice 8 - Interruptions
 
