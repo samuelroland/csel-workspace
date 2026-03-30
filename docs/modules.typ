@@ -47,7 +47,7 @@ Après changement du `Makefile` et `Kconfig` mentionné, recompilation et extrac
 Nous avons aussi vu une typo dans `Génération «inside tree»`: `Voir ./Documenation/kbuild pour plus de détails ...`
 
 
-=== Exercice 2
+== Exercice 2
 
 Note: la solution donnée devrait être dans un dossier `exercice02` séparé de `exercice01`.
 
@@ -266,6 +266,9 @@ EOF
 ```
 
 == Exercice 6 - Threads du noyau
+
+Feedback sur la page #link("https://mse-csel.github.io/website/lecture/programmation-noyau/modules/threads/")[Threads dans le noyau]: La phrase `Pour stopper un thread, il suffit d’utiliser la fonction kthread_stop` pourrait être améliorée par `Pour demander à un thread de s'arrêter`, puisqu'il est nécessaire de vérifier `kthread_should_stop` dans le thread.
+
 ```sh
 > insmod mymodule.ko
 [ 4136.760510] Linux module 06 skeleton loaded
@@ -294,13 +297,93 @@ Retirer le module gère l'arrêt correctement.
 [ 4310.654599] Tick from thread
 [ 4310.657545] Stopping thread
 [ 4310.662684] Linux module skeleton unloaded
-
 # pas d'autres messages ensuite.
 ```
 
 == Exercice 7 - Mise en sommeil
 
+A part quelques difficultés à bien gérer la terminaison du thread 1, à cause d'un `kthread_should_stop` manquant, l'exercice a fonctionné. Les tests manuels ne sont pas toujours évident à reproduire, surtout quand un thread ne se réveille pas sur `rmmod mymodule` et qu'on est forcé de redémarrer la carte. Nous avons essayés de `kill` le thread dans ce cas, en vain.
+
+```sh
+> insmod mymodule.ko
+[  362.804915] Linux module 07 skeleton loaded
+[  362.810101] Thread 1 started !
+[  362.814879] Thread 2 started !
+
+>
+[  367.839327] T2: Waking up thread 1
+[  367.842890] T1: Received tick from thread 2
+[  372.961238] T2: Waking up thread 1
+[  372.964940] T1: Received tick from thread 2
+[  378.078651] T2: Waking up thread 1
+[  378.082188] T1: Received tick from thread 2
+
+> rmmod mymodule
+[  382.676094] Stopping both threads
+[  383.198707] T2: Waking up thread 1
+[  383.205901] T1: Received tick from thread 2
+[  383.211272] Stopping thread
+[  383.214266] Stopping thread 2
+[  383.219752] Linux module skeleton unloaded
 ```
-```
+
 == Exercice 8 - Interruptions
 
+En pressant bouton 1, 2, 3, 3, 2, puis 1, on obtient bien le résultat attendu.
+```
+[   35.864191] received IRQ 88 => pressed button button 1
+[   36.279234] received IRQ 90 => pressed button button 2
+[   36.647219] received IRQ 91 => pressed button button 3
+[   37.473834] received IRQ 91 => pressed button button 3
+[   38.002297] received IRQ 90 => pressed button button 2
+[   38.355874] received IRQ 88 => pressed button button 1
+```
+
+Par contre nous avions eu 2 problèmes. Avec le code de déchargement du module suivant
+```c
+    #define N1 0
+    int status = gpio_request(N1, "bouton 1");
+    if (status < 0) {
+        pr_warn("Error: could not gpio_request for button 1\n");
+        return -1;
+    }
+    request_irq(gpio_to_irq(N1), press_button_logger, IRQF_SHARED, "btn1", "button 1");
+```
+
+Avec le code de déchargement du module suivant
+```c
+static void __exit skeleton_exit(void) {
+    free_irq(gpio_to_irq(0), NULL);
+    free_irq(gpio_to_irq(2), NULL);
+    free_irq(gpio_to_irq(3), NULL);
+
+    gpio_free(0);
+    gpio_free(2);
+    gpio_free(3);
+}
+```
+semble causer l'erreur suivante et ce n'est pas très clair de pourquoi...
+
+```sh
+[  162.149207] Trying to free already-free IRQ 90
+[  162.153660] WARNING: CPU: 3 PID: 286 at kernel/irq/manage.c:1895 free_irq+0x1d4/0x370
+```
+
+Nous avons aussi rencontré également des joli `Kernel panic` en testant dans l'ordre suivant: `insmod` -> tester les boutons, ils fonctionnent -> `rmmod` -> essayer les boutons encore -> panic.
+
+Après recherche avec ChatGPT, nous avons trouvé le problème: l'ID passée dans `free_irq` doit être à la fois unique et doit exister. L'ID `NULL` n'existe pas d'où le message `Trying to free already-free IRQ 90`. Les pointeurs vers les fonctions `irq_handler_t` ne sont pas nettoyés mais le module ayant été déchargé, les adresses mémoires ne sont plus accessibles, d'où le Kernel panic.
+
+Feedback pour le cours, notamment lié à ce problème rencontré
++ `dev_name → nom du périphérique d’interruption` -> ce paramètre semble être complètement arbitraire et uniquement utile au debug, est-ce le cas ?
++ `dev_id → paramètre spécifique à l’application(doit impérativement être non nul si l’interruption est partagée IRQF_SHARED)` -> rajouter qu'il est arbitraire mais doit être unique et le même pour `free_irq` ?
++ `La commande cat /proc/interrupts fournit des informations très intéressantes sur l’état des interruptions avec le nom associé au vecteur d’interruption.`. Ca a l'air intéressant mais il est difficile de comprendre la signification des colonnes. Il n'y a pas d'exemple d'appel de `request_irq`, donc on ne sait pas quelle ligne est pertinente et quel nom `dev_name` faut-il chercher. Possible d'ajouter une légende ?
++ Dans la solution `free_irq` est lancé après `gpio_free`, ce qui est le même sens que pour l'allocation, ce qui parait étonnant comme c'est souvent le sens inverse?
++ Peut-être rajouter la signature de `irq_handler_t` ?
++ ```c
+  + typedef irqreturn_t (*irq_handler_t)(int, void *);
+  + ```
++ `flags → fanions de gestion des interruptions` -> comment savoir laquelle activer ??
+  + La phrase `IRQF_DISABLED → garde irqs déclenché lors de l’appel de la routine de traitement` n'est pas clair. Qu'est-ce que `irqs` (et pourquoi au pluriel) ? Que signifie `déclenché` ?
+  + `IRQF_TRIGGER_<xx> → fanion pour sélectionner le trigger (xx: FALLING, RISING, …)` Pas sûr de comprendre l'impact de ce flag. Intuitivement je pense au hooks keydown et keyup en JavaScript mais ce n'est probablement pas du tout ça, comme nous ne voyons pas la différence en testant à la main.
+  + Pourquoi le code de la solution contient `IRQF_TRIGGER_FALLING | IRQF_SHARED` ? Par défaut nous aurions mis aucun flag puisque rien ne semblait correspondre au besoin de l'exercice. Est-ce aucun flag est possible ?
++ Dans `Traitement des interruptions par thread`, peut-être rajouter que le fait d'avoir 2 fonctions `irq_handler_t` permet de décider dans la fonction 1 à l'exécution de traiter ou non l'interruption dans un thread avec la fonction 2. Si c'est bien cela ?
