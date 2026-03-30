@@ -4,68 +4,63 @@
 - `Un fichier task.json (dans le dossier .vscode de chaque “root”)`. Le fichier semble plutôt être au pluriel `tasks.json`.
 - `Configurez maintenant l’adaptateur Ethernet de votre PC (ou un adaptateur Ethernet/USB) avec l’adresse IP fixe 192.168.53.4.` Sans l'expérience de SeS, Samuel n'aurait pas su comment faire. Peut-être qu'ajouter la commande d'exemple suivante peut aider d'autres gens qui débutent. Il faudrait aussi préciser que le nom de l'interface `enp0s20f0u1u3` peut changer et qu'il est récupérable dans `ip a | grep enp`.
   ```sh
-  sudo ip addr add 192.168.53.4/24 dev enp0s20f0u1u3
-  sudo ip link set enp0s20f0u1u3 up
+  sudo ip addr add 192.168.53.4/24 dev enp0s20f0u1u3 && sudo ip link set enp0s20f0u1u3 up
   ```
-- `Écrire aussi le Makefile suivant: `. Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu de tabs, ce qui génère une erreur de syntaxe peu claire.
-  ```sh
-  boot.cifs: boot_cifs.cmd
-    mkimage -T script -A arm -C none -d boot_cifs.cmd boot.cifs
+- `Écrire aussi le Makefile suivant: `. Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu de tabs devant `  mkimage`, ce qui génère une erreur de syntaxe peu claire.
+
+== Réponses aux questions
+
++ _Comment faut-il procéder pour générer l’U-Boot ?_
+
+  On peut modifier u-boot avec `make uboot-menuconfig`.
+  Une fois u-boot modifié, relancer `make`, permet de rebuilder les packages modifiés, dont u-boot.
+  Ou bien, `make uboot-rebuild` permet de rebuilder `uboot` seulement.
+
++ _Comment peut-on ajouter et générer un package supplémentaire dans le Buildroot ?_
+
+  On peut ajouter un nouveau package depuis le dossier `output` avec `make menuconfig`.
+  Dans le menu on peut séléctionner le(s) nouveau(x) package(s) à ajouter.
+
++ _Comment doit-on procéder pour modifier la configuration du noyau Linux ?_
+
+  La configuration du noyau linux se fait avec `make linux-menuconfig`.
+
++ _Comment faut-il faire pour générer son propre rootfs ?_
+
+  On configure le système via `make menuconfig` (choix du filesystem overlay, des packages, init system, etc.),
+  on peut ajouter un rootfs overlay (répertoire copié tel quel dans le rootfs final), on lance `make` pour générer l'image
+  Le `rootfs` généré se trouve dans `output/images/` (ex: rootfs.tar, rootfs.ext4, etc.)
+
++ _Comment faudrait-il procéder pour utiliser la carte eMMC en lieu et place de la carte SD ?_
+
+  Flasher le contenu sur l'eMMC, avant de booter dessus, il faut y écrire l'image avec éventuellemnt le rootfs, le kernel et DTB:
+
+  Ceci doit être fait depuis la cible, après avoir `mount` la flash dans `/dev/mmcblk1p2`
+
+  ```bash
+  dd if=image.ext4 of=/dev/mmcblk1p2 bs=1M
   ```
 
-== Questions
+  Créer un nouveau boot script `boot.cmd` similaire à celui par défaut qui est fourni dans la définition de la board avec les bons paramètres:
 
-+ Comment faut-il procéder pour générer l’U-Boot ?
+  ```bash
+  setenv bootargs console=ttyS0,115200 earlyprintk root=/dev/mmcblk1p2 rootwait
+  fatload mmc 0 $kernel_addr_r Image
+  fatload mmc 0 $fdt_addr_r nanopi-neo-plus2.dtb
+  booti $kernel_addr_r - $fdt_addr_r
+  ```
 
-On peut modifier u-boot avec `make uboot-menuconfig`.
-Une fois u-boot modifié, relancer `make`, permet de rebuilder les packages modifiés, dont u-boot.
-Ou bien, `make uboot-rebuild` permet de rebuilder `uboot` seulement.
+  La différence clé est l'utilisation de `root=/dev/mmcblk1p2` à la place de `root=/dev/mmcblk2p2`.
 
-+ Comment peut-on ajouter et générer un package supplémentaire dans le Buildroot ?
+  Regénérer le `boot.scr`, U-Boot ne lit pas directement le boot.cmd mais sa version compilée :
 
-On peut ajouter un nouveau package depuis le dossier `output` avec `make menuconfig`.
-Dans le menu on peut séléctionner le(s) nouveau(x) package(s) à ajouter.
+  ```bash
+  mkimage -C none -A arm -T script -d boot.cmd boot.scr
+  ```
 
-+ Comment doit-on procéder pour modifier la configuration du noyau Linux ?
++ _Dans le support de cours, on trouve différentes configurations de l’environnement de développement. Quelle serait la configuration optimale pour le développement uniquement d’applications en espace utilisateur ?_
 
-La configuration du noyau linux se fait avec `make linux-menuconfig`.
-
-+ Comment faut-il faire pour générer son propre rootfs ?
-
-On configure le système via `make menuconfig` (choix du filesystem overlay, des packages, init system, etc.),
-on peut ajouter un rootfs overlay (répertoire copié tel quel dans le rootfs final), on lance `make` pour générer l'image
-Le `rootfs` généré se trouve dans `output/images/` (ex: rootfs.tar, rootfs.ext4, etc.)
-
-+ Comment faudrait-il procéder pour utiliser la carte eMMC en lieu et place de la carte SD ?
-
-Flasher le contenu sur l'eMMC, avant de booter dessus, il faut y écrire l'image avec éventuellemnt le rootfs, le kernel et DTB:
-
-Ceci doit être fait depuis la cible, après avoir `mount` la flash dans `/dev/mmcblk1p2`
-
-```bash
-dd if=image.ext4 of=/dev/mmcblk1p2 bs=1M
-```
-
-Créer un nouveau boot script `boot.cmd` similaire à celui par défaut qui est fourni dans la définition de la board avec les bons paramètres:
-
-```bash
-setenv bootargs console=ttyS0,115200 earlyprintk root=/dev/mmcblk1p2 rootwait
-fatload mmc 0 $kernel_addr_r Image
-fatload mmc 0 $fdt_addr_r nanopi-neo-plus2.dtb
-booti $kernel_addr_r - $fdt_addr_r
-```
-
-La différence clé est l'utilisation de `root=/dev/mmcblk1p2` à la place de `root=/dev/mmcblk2p2`.
-
-Regénérer le `boot.scr`, U-Boot ne lit pas directement le boot.cmd mais sa version compilée :
-
-```bash
-mkimage -C none -A arm -T script -d boot.cmd boot.scr
-```
-
-+ Dans le support de cours, on trouve différentes configurations de l’environnement de développement. Quelle serait la configuration optimale pour le développement uniquement d’applications en espace utilisateur ?
-
-La façon optimale est d'avoir un kernel chargé depuis la carte SD et le rootfs chargé depuis le réseau, cela permet de facilement tester des nouvelles configurations user-space rootfs sans prolonger le boot de façon inutile.
+  La façon optimale est d'avoir un kernel chargé depuis la carte SD et le rootfs chargé depuis le réseau, cela permet de facilement tester des nouvelles configurations user-space rootfs sans prolonger le boot de façon inutile.
 
 == Adaptations to the original laboratory instructions
 
