@@ -1,4 +1,5 @@
 /* skeleton.c */
+#include <linux/atomic.h>  /* needed for atomic variables */
 #include <linux/delay.h>   /* needed for delay fonctions */
 #include <linux/init.h>    /* needed for macros */
 #include <linux/kernel.h>  /* needed for debugging */
@@ -8,14 +9,19 @@
 
 DECLARE_WAIT_QUEUE_HEAD(queue);
 
-int sleeptime = true;
+atomic_t sleeptime;  // the thread 1 must sleep when this is true
 
 int thread1(void*) {
     pr_info("Thread 1 started !\n");
     while (!kthread_should_stop()) {
-        wait_event_interruptible(queue, !sleeptime);
+        int status = wait_event_interruptible(
+            queue, (0 == atomic_read(&sleeptime)) || kthread_should_stop());
+        if (status < 0) {
+            pr_info("Interrupted thread, stopping...\n");
+            return -1;
+        }
         pr_info("T1: Received tick from thread 2\n");
-        sleeptime = true;
+        atomic_set(&sleeptime, true);
     }
 
     pr_info("Stopping thread\n");
@@ -27,11 +33,14 @@ int thread2(void*) {
     while (!kthread_should_stop()) {
         ssleep(5);
         pr_info("T2: Waking up thread 1\n");
-        sleeptime = false;  // so the thread 1 will go out of the waitqueue
+        atomic_set(&sleeptime,
+                   false);  // so the thread 1 will go out of the waitqueue
         wake_up(&queue);
     }
 
-    wake_up(&queue);  // last wakeup to make sure thread 1 can exit
+    atomic_set(&sleeptime,
+               false);  // so the thread 1 will go out of the waitqueue
+    wake_up(&queue);    // last wakeup to make sure thread 1 can exit
     pr_info("Stopping thread 2\n");
     return 0;
 }
@@ -42,8 +51,9 @@ struct task_struct* thread2_handle;
 static int __init skeleton_init(void) {
     pr_info("Linux module 07 skeleton loaded\n");
 
-    thread1_handle = kthread_run(thread1, NULL, "Simple kthread 1");
-    thread2_handle = kthread_run(thread2, NULL, "Simple kthread 2");
+    atomic_set(&sleeptime, true);
+    thread1_handle = kthread_run(thread1, NULL, "Simple kthread one");
+    thread2_handle = kthread_run(thread2, NULL, "Simple kthread two");
 
     return 0;
 }
