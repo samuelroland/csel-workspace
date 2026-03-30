@@ -51,25 +51,7 @@ Nous avons aussi vu une typo dans `Génération «inside tree»`: `Voir ./Docume
 
 Note: la solution donnée devrait être dans un dossier `exercice02` séparé de `exercice01`.
 
-Nous avons pu définir 3 paramètres
-```c
-static char* firstname = "?";
-static char* lastname = "?";
-static int min_temperature = 20;
-module_param(firstname, charp, 0);
-module_param(lastname, charp, 0);
-module_param(min_temperature, int, 0);
-
-static int __init skeleton_init(void) {
-    pr_info("Linux module loaded !\n");
-    pr_info("You are %s %s and your prefered min temperature is %d !\n",
-            firstname, lastname, min_temperature);
-    return 0;
-}
-...
-```
-
-Leur usage fonctionne sans problème.
+Nous avons pu définir 3 paramètres et leur usage fonctionne sans problème.
 ```sh
 > pwd
 /workspace/src/02_modules/exo1

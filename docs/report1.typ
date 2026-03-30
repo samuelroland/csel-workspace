@@ -21,10 +21,11 @@
   stroke: 1pt + luma(200),
 )
 
+#show raw: text.with(size: 0.8em)
 
-#align(center, text(size: 30pt)[Labos CSEL1 - partie 1])
+#align(center, text(size: 30pt)[Labos CSEL1 - partie 1 - 2026])
 
-#text(size: 17pt)[Binôme: André Costa et Samuel Roland]
+#text(size: 17pt)[Groupe: André Costa et Samuel Roland]
 
 Notre fork du repository Git est disponible sur #link("https://github.com/samuelroland/csel-workspace").
 
@@ -32,9 +33,10 @@ Notre fork du repository Git est disponible sur #link("https://github.com/samuel
 
 #include "./disclaimer.typ"
 
-// TODO: should we rename this to setup ?
-#include "./week1.typ"
+#include "./env.typ"
 
+#pagebreak()
 #include "./modules.typ"
 
+#pagebreak()
 #include "./drivers.typ"
