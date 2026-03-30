@@ -7,6 +7,11 @@
   sudo ip addr add 192.168.53.4/24 dev enp0s20f0u1u3 && sudo ip link set enp0s20f0u1u3 up
   ```
 - `Écrire aussi le Makefile suivant: `. Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu de tabs devant `  mkimage`, ce qui génère une erreur de syntaxe peu claire.
+- Il semble qu'il ait fallu changer `src/nanopi.cmake` dans le devcontainer pour éviter une erreur de compilation...
+  ```diff
+  -set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mcpu=cortex-a53 -funwind-tables")
+  +set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -funwind-tables")
+  ```
 
 == Réponses aux questions
 
