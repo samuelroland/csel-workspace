@@ -39,3 +39,5 @@ boot-scripts/boot.cifs
 boot-scripts/boot.net
 **compile_commands.json
 **.cache
+
+**.pdf

@@ -1,33 +1,28 @@
-= Disclaimer
+= Notice
 
 #block(
   fill: luma(230),
   inset: 12pt,
   radius: 4pt,
-  stroke: (left: 3pt + rgb("#f0a500")),
+  stroke: (left: 3pt + rgb("#f0a500"))
 )[
-  *Note on the Development Environment*
+  *Note sur l'environnement de développement* 
+  Ce rapport a été produit en dehors de l'environnement Docker officiel du cours (Ubuntu 24. 04). Tous les laboratoires
+  ont été réalisés nativement sous Fedora 42, une distribution Linux fournissant des versions de paquets sensiblement
+  plus récentes que celles présentes dans le conteneur de référence.
 
-  This report was produced outside of the official course Docker environment
-  (Ubuntu 24.04). All laboratories were completed natively on *Fedora 42*, a
-  Linux distribution shipping significantly more recent package versions than
-  those present in the reference container.
+  Ce choix délibéré a été fait dans le but de tirer le meilleur parti du cours et d'approfondir la compréhension,
+  en confrontant directement les défis d'un environnement réel plutôt qu'un environnement préconfiguré et isolé.
+  Cette approche n'est cependant pas recommandée pour les étudiants souhaitant suivre le cours dans des conditions
+  optimales, car l'environnement Docker officiel demeure la référence pour reproduire les résultats attendus sans difficulté
+  supplémentaire.
 
-  This deliberate choice was made with the goal of getting the most out of the
-  course and deepening understanding, by directly confronting the challenges of
-  a real environment rather than a preconfigured and isolated one.
-  *This approach is however not recommended* for students wishing to follow the
-  course under optimal conditions, as the official Docker environment remains
-  the reference for reproducing expected results without additional difficulty.
+  Cette différence d'environnement a causé plusieurs incompatibilités lors de la compilation et de la configuration des outils.
+  Chaque problème rencontré a été documenté, ainsi que les étapes supplémentaires nécessaires pour le résoudre. Ces sections
+  additionnelles sont clairement identifiées tout au long du rapport afin de les distinguer du contenu strictement lié aux
+  objectifs du laboratoire.  Cette documentation détaillée est intentionnelle : elle pourra servir de référence aux futurs
+  étudiants qui souhaiteraient également travailler en dehors du conteneur officiel.
 
-  This difference in environment caused several incompatibilities during the
-  compilation and configuration of tools. Each issue encountered has been
-  documented, along with the additional steps required to resolve it. These
-  additional sections are clearly identified throughout the report to distinguish
-  them from content strictly related to the laboratory objectives. This detailed
-  documentation is intentional: it may serve as a reference for future students
-  who also wish to work outside the official container.
+  Les résultats obtenus restent fonctionnellement équivalents à ceux attendus dans l'environnement standard.
 
-  The results obtained remain functionally equivalent to those expected in the
-  standard environment.
 ]

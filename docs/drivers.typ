@@ -272,11 +272,14 @@ Développer une petite application en espace utilisateur permettant d’accéder
 
 Pour cet exercice, la première implémentation consistait à ouvrir chaque fichier, écrire dans ces fichiers et ensuite lire avant de refermer les fichiers. `open()` -> `write()` -> `read()` -> `close()`.
 
-Cependant, ceci ne marche pas car lors du first `write()`, l'offset dans le fichier est déplacé et lors du `read()`, on va lire trop loin dans le buffer.
+Cependant, ceci ne marche pas car lors du first `write()`, l'offset dans le fichier est déplacé et lors du `read()`,
+on va essayer de lire trop loin dans le buffer ce qui ne retournera rien.
 
 Pour résoudre ce problème, on peut fermer les fichiers entre le `write()` et `read()` ou bien replacer l'offset à 0, avec `lseek()`.
 
-La première solution marche par défaut, la deuxième demande l'implémentaiton de la callback `llseek` au niveau du module afin de modifier `f_pos`.
+La première solution marche par défaut et est la solution proposé dans le workspace. 
+
+La deuxième demande l'implémentation du callback `llseek` au niveau du module afin de modifier `f_pos`.
 
 ```c
 loff_t skeleton_llseek(struct file* f, loff_t offset, int whence)
@@ -387,7 +390,8 @@ Pour le résoudre il suffit de vérifier si `status != 0` pour appeler `misc_der
     return status;
 ```
 
-De plus, le pilote donné en exemple ne permet pas de lire la valeur du bouton pressé, pour ajouter cette fonctionnalité, le code suivant a été ajouté:
+De plus, le pilote donné en exemple ne permet pas de lire la valeur du bouton pressé, pour ajouter cette fonctionnalité, les modifications suivantes
+ont été effectuées:
 
 1. Utilisation de `static const int` à la place de `#define`, permettant le passage d'un pointeur sur l'identifiant du bouton à l'irq:
 

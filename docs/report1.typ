@@ -29,9 +29,15 @@
 
 Notre fork du repository Git est disponible sur #link("https://github.com/samuelroland/csel-workspace").
 
+Notre fork du repository buildroot est disponible sur #link("https://github.com/AndreCostaaa/buildroot/tree/csel").
+
 #outline(title: "Table des matières")
 
+#pagebreak()
+
 #include "./disclaimer.typ"
+
+#pagebreak()
 
 #include "./env.typ"
 
