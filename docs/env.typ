@@ -2,33 +2,33 @@
 
 == Feedbacks sur le support de cours
 
-1. _Un fichier task.json (dans le dossier .vscode de chaque “root”)_.
++ _Un fichier task.json (dans le dossier .vscode de chaque “root”)_.
 
-Le fichier semble plutôt être au pluriel `tasks.json`.
+  Le fichier semble plutôt être au pluriel `tasks.json`.
 
-2. _Configurez maintenant l’adaptateur Ethernet de votre PC (ou un adaptateur Ethernet/USB) avec l’adresse IP fixe 192.168.53.4._
++ _Configurez maintenant l’adaptateur Ethernet de votre PC (ou un adaptateur Ethernet/USB) avec l’adresse IP fixe 192.168.53.4._
 
-Sans l'expérience de SeS, Samuel n'aurait pas su comment faire. Peut-être qu'ajouter la commande d'exemple suivante peut aider d'autres gens qui débutent. Il faudrait aussi préciser que le nom de l'interface `enp0s20f0u1u3` peut changer et qu'il est récupérable dans `ip a | grep enp`.
+  Sans l'expérience de SeS, Samuel n'aurait pas su comment faire. Peut-être qu'ajouter la commande d'exemple suivante peut aider d'autres gens qui débutent. Il faudrait aussi préciser que le nom de l'interface `enp0s20f0u1u3` peut changer et qu'il est récupérable dans `ip a | grep enp`.
 
-```sh
-sudo ip addr add 192.168.53.4/24 dev enp0s20f0u1u3 && sudo ip link set enp0s20f0u1u3 up
-```
+  ```sh
+  sudo ip addr add 192.168.53.4/24 dev enp0s20f0u1u3 && sudo ip link set enp0s20f0u1u3 up
+  ```
 
-La solution entrepris par André utilise `nmcli` pour atteindre le même résultat:
+  La solution choisie par André est d'utiliser `nmcli` pour atteindre le même résultat:
 
-```sh
-nmcli connection modify <connection_name> ipv4.method manual ipv4.addresses 192.168.53.4/24 ipv4.gateway 192.168.53.1
-```
+  ```sh
+  nmcli connection modify <connection_name> ipv4.method manual ipv4.addresses 192.168.53.4/24 ipv4.gateway 192.168.53.1
+  ```
 
-Avec `"Wired connection 2"` qui peut être trouvé avec:
+  Avec le nom de la connection (exemple `"Wired connection 2"`) qui peut être trouvé avec:
 
-```sh
-nmcli connection show
-```
+  ```sh
+  nmcli connection show
+  ```
 
-3. _Écrire aussi le Makefile suivant:_.
++ _Écrire aussi le Makefile suivant:_.
 
-Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu de tabs devant `  mkimage`, ce qui génère une erreur de syntaxe peu claire.
+  Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu de tabs devant `  mkimage`, ce qui génère une erreur de syntaxe peu claire.
 
 == Réponses aux questions
 
@@ -41,7 +41,7 @@ Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu
 + _Comment peut-on ajouter et générer un package supplémentaire dans le Buildroot ?_
 
   On peut ajouter un nouveau package depuis le dossier `output` avec `make menuconfig`.
-  Dans le menu on peut séléctionner le(s) nouveau(x) package(s) à ajouter.
+  Dans le menu on peut sélectionner de nouveaux packages à ajouter.
 
 + _Comment doit-on procéder pour modifier la configuration du noyau Linux ?_
 
@@ -55,8 +55,8 @@ Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu
 
 + _Comment faudrait-il procéder pour utiliser la carte eMMC en lieu et place de la carte SD ?_
 
-  Tout d'abord il faut flasher le contenu sur l'eMMC, avant de booter dessus. Pour cela, 
-  il faut y écrire l'image avec éventuellemnt le rootfs, le kernel et DTB:
+  Tout d'abord il faut flasher le contenu sur l'eMMC, avant de booter dessus. Pour cela,
+  il faut y écrire l'image avec éventuellemnt le rootfs, le kernel et DTB.
 
   Ceci doit être fait depuis la cible, car nous n'avons pas d'accès à l'eMMC depuis l'extérieur.
   Pour cela on peut flasher la mémoire avec `dd`:
@@ -69,12 +69,12 @@ Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu
 
   ```bash
   setenv bootargs console=ttyS0,115200 earlyprintk root=/dev/mmcblk1p2 rootwait
-  fatload mmc 0 $kernel_addr_r Image
-  fatload mmc 0 $fdt_addr_r nanopi-neo-plus2.dtb
+  fatload mmc 1 $kernel_addr_r Image
+  fatload mmc 1 $fdt_addr_r nanopi-neo-plus2.dtb
   booti $kernel_addr_r - $fdt_addr_r
   ```
 
-  La différence clé est l'utilisation de `root=/dev/mmcblk1p2` à la place de `root=/dev/mmcblk2p2`.
+  La différence clé est l'utilisation de `root=/dev/mmcblk1p2` à la place de `root=/dev/mmcblk2p2`. L'autre différence est `fatload mmc 1` au lieu `fatload mmc 0` (1 signifie la eMMC et 0 la carte SD).
 
   Regénérer le `boot.scr`, U-Boot ne lit pas directement le boot.cmd mais sa version compilée :
 
@@ -84,7 +84,7 @@ Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu
 
 + _Dans le support de cours, on trouve différentes configurations de l’environnement de développement. Quelle serait la configuration optimale pour le développement uniquement d’applications en espace utilisateur ?_
 
-  La façon optimale est d'avoir un kernel chargé depuis la carte SD et le rootfs chargé depuis le réseau, cela permet de facilement tester des nouvelles configurations user-space rootfs sans prolonger le boot de façon inutile.
+  La façon optimale est d'avoir un kernel chargé depuis la carte SD et le rootfs monté en réseau. L'accès réseau permet de facilement tester des nouvelles configurations user-space rootfs, tout en évitant de prolonger le boot de façon inutile en téléchargeant une image de kernel qui ne change pas.
 
 == Adaptations des instructions de laboratoire originales
 
@@ -97,26 +97,26 @@ Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu
   === Problème 1 - Incompatibilité de GCC 15 avec Buildroot 2022.08.3
   GCC 15 (la version par défaut sur Fedora 42) transforme certains avertissements en erreurs, ce qui empêche la compilation correcte de certains paquets de Buildroot 2022.08.3. Cette version de Buildroot ciblait GCC 12 comme version de référence moderne en 2022 (voir la #link("[https://www.gnu.org/software/gcc/releases.html](https://www.gnu.org/software/gcc/releases.html)")[chronologie de GCC]). Étant donné que GCC 12 n'est pas directement disponible via `dnf`, il doit être compilé à partir des sources.
   ```bash
-    sudo mkdir -p /opt/gcc-12
-    sudo chown -R $USER /opt/gcc-12
-    wget https://ftp.gnu.org/gnu/gcc/gcc-12.3.0/gcc-12.3.0.tar.gz
-    tar xvf gcc-12.3.0.tar.gz
-    cd gcc-12.3.0
-    ./contrib/download_prerequisites
-    mkdir build && cd build
-    ../configure --enable-languages=c,c++ --prefix=/opt/gcc-12
-    make -j$(nproc)
-    make install
+  sudo mkdir -p /opt/gcc-12
+  sudo chown -R $USER /opt/gcc-12
+  wget https://ftp.gnu.org/gnu/gcc/gcc-12.3.0/gcc-12.3.0.tar.gz
+  tar xvf gcc-12.3.0.tar.gz
+  cd gcc-12.3.0
+  ./contrib/download_prerequisites
+  mkdir build && cd build
+  ../configure --enable-languages=c,c++ --prefix=/opt/gcc-12
+  make -j$(nproc)
+  make install
   ```
   Buildroot est ensuite invoqué en spécifiant explicitement le compilateur hôte :
   ```bash
-    HOSTCC=/opt/gcc-12/bin/gcc HOSTCXX=/opt/gcc-12/bin/g++ make
+  HOSTCC=/opt/gcc-12/bin/gcc HOSTCXX=/opt/gcc-12/bin/g++ make
   ```
   === Problème 2 - Incompatibilité de `wget` v2 avec Buildroot 2022.08.3
   Buildroot 2022.08.3 appelle `wget` avec l'option `--passive-ftp`. Ce paramètre est supporté par wget v1 mais a été supprimé dans la version v2, installée par défaut sur Fedora 42. La solution choisie consiste à modifier le fichier `.config` pour retirer ce paramètre, puis à sauvegarder la configuration :
   ```bash
-    sed -i 's/BR2_WGET="wget --passive-ftp/BR2_WGET="wget/' .config
-    make savedefconfig
+  sed -i 's/BR2_WGET="wget --passive-ftp/BR2_WGET="wget/' .config
+  make savedefconfig
   ```
 
   === Problème 3 - menuconfig
@@ -127,10 +127,10 @@ Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu
    *** Unable to find the ncurses libraries or the
    *** required header files.
    *** 'make menuconfig' requires the ncurses libraries.
-   *** 
-   *** Install ncurses (ncurses-devel or libncurses-dev 
+   ***
+   *** Install ncurses (ncurses-devel or libncurses-dev
    *** depending on your distribution) and try again.
-   *** 
+   ***
   ```
 
   L'erreur semble indiquer qu'il manque des libraries mais ceci n'est pas le cas, en réalité le problème provient
@@ -139,13 +139,13 @@ Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu
 
   === Adapation 4 - Chemins dans les Makefile
 
-  Les Makefile par défaut essaient de trouver la toolchain dans `/buildroot/output/host/usr/bin/`, ce chemin n'est évidemment pas 
+  Les Makefile par défaut essaient de trouver la toolchain dans `/buildroot/output/host/usr/bin/`, ce chemin n'est évidemment pas
   valable en dehors du container docker. La façon utilisé pour résoudre ceci a été de permettre de définir les variables `CC`, `LD`,
   etc... avec des variables d'environnement. On aurait aussi pu simplement le faire pour le chemin de la toolchain.
 
   Comme les chemins proposés s'adaptent correctement aux étudiants qui utilisent les containers Docker ainsi que les étudiants en natif,
   ceci a été upstream sur le repo officiel à travers une #link("https://github.com/mse-csel/csel-workspace/pull/8")[pull request].
-  La pull request explique aussi la solution prise et comment cela marche.
+  La pull request explique aussi la solution prise et son fonctionnement.
 
   === Adaptation 5 - Remplacement de CIFS/SMB par SSHFS
 
@@ -159,6 +159,6 @@ Il y a un petit problème avec le snippet suivant qui contient 2 espaces au lieu
   sshfs <user>@192.168.53.4:/chemin/vers/workspace /workspace
   ```
   #text(style: "italic")[
-    *Note sur la sécurité :* Cette solution n'est pas idéale d'un point de vue sécuritaire, car la machine cible est un environnement non sécurisé (root sans mot de passe). Une approche plus robuste consisterait à utiliser un conteneur Docker avec uniquement l'espace de travail de l'hôte monté à l'intérieur, similaire à l'environnement fourni par le professeur. Cette amélioration n'a pas été implémentée dans le cadre de ce laboratoire.
+    *Note sur la sécurité :* Cette solution n'est pas idéale d'un point de vue sécuritaire, car la machine cible est un environnement non sécurisé (root sans mot de passe). Une approche plus robuste consisterait à utiliser un conteneur Docker avec uniquement l'espace de travail de l'hôte monté à l'intérieur, similaire à l'environnement fourni officiel. Cette amélioration n'a pas été implémentée dans le cadre de ce laboratoire.
   ]
 ]

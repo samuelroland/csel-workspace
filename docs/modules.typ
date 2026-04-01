@@ -18,7 +18,7 @@ author:         Samuel Roland
 ...
 ```
 
-La comparaison entre `lsmod` et `/proc/modules` n'est pas très différente comme `lsmod` ne fait que formatter joliment l'affichage des informations données par `/proc/modules`. (La man page indique `lsmod is a trivial program which nicely formats the contents of the /proc/modules, showing what kernel modules are currently loaded.`)
+La comparaison entre `lsmod` et `/proc/modules` n'est pas très différente comme `lsmod` ne fait que formatter joliment l'affichage des informations données par `/proc/modules`. (La man page indique #quote("lsmod is a trivial program which nicely formats the contents of the /proc/modules, showing what kernel modules are currently loaded."))
 
 ```
 # lsmod
@@ -49,7 +49,9 @@ Nous avons aussi vu une typo dans `Génération «inside tree»`: `Voir ./Docume
 
 == Exercice 2
 
-#rect([ Adaptez le module de l’exercice précédent afin qu’il puisse recevoir deux ou trois paramètres de votre choix. Ces paramètres seront affichés dans la console. Adaptez également le rootfs afin de pouvoir utiliser la commande modprobe. ])
+#rect(
+  [ Adaptez le module de l’exercice précédent afin qu’il puisse recevoir deux ou trois paramètres de votre choix. Ces paramètres seront affichés dans la console. Adaptez également le rootfs afin de pouvoir utiliser la commande modprobe. ],
+)
 
 Note: la solution donnée devrait être dans un dossier `exercice02` séparé de `exercice01`.
 
@@ -161,9 +163,11 @@ En inspectant `dmesg`, les messages suivants (4-7) n'ont pas été ignorés, ils
 
 L'autre point intéressant est que la console du kernel est visible en connexion série, mais n'est pas visible quand on se connecte en SSH.
 
-== Exercice 4 
+== Exercice 4
 
-#rect([ Créez dynamiquement des éléments dans le noyau. Adaptez un module noyau, afin que l’on puisse lors de son installation spécifier un nombre d’éléments à créer ainsi qu’un texte initial à stocker dans les éléments précédemment alloués. Chaque élément contiendra également un numéro unique. Les éléments seront créés lors de l’installation du module et chaînés dans l’une liste. Ces éléments seront détruits lors de la désinstallation du module. Des messages d’information seront émis afin de permettre le debugging du module. ])
+#rect(
+  [ Créez dynamiquement des éléments dans le noyau. Adaptez un module noyau, afin que l’on puisse lors de son installation spécifier un nombre d’éléments à créer ainsi qu’un texte initial à stocker dans les éléments précédemment alloués. Chaque élément contiendra également un numéro unique. Les éléments seront créés lors de l’installation du module et chaînés dans l’une liste. Ces éléments seront détruits lors de la désinstallation du module. Des messages d’information seront émis afin de permettre le debugging du module. ],
+)
 
 Cette partie fonctionne sans problème, en allouant à l'aide de `kzmalloc`.
 ```sh
@@ -205,9 +209,11 @@ static void __exit skeleton_exit(void) {
 }
 ```
 
-== Exercice 5 - Accès aux entrées/sorties
+== Exercice 5
 
-#rect([ À l’aide d’un module noyau, afficher le Chip-ID du processeur, la température du CPU et la MAC adresse du contrôleur Ethernet. ])
+#rect(
+  [ À l’aide d’un module noyau, afficher le Chip-ID du processeur, la température du CPU et la MAC adresse du contrôleur Ethernet. ],
+)
 
 Pourquoi dans la solution, le mappage prend une taille de 4096 bytes alors que selon la datasheet `SID 0x01C1 4000---0x01C1 43FF 1K`, il semble que la zone ne fait que 1024 bytes ?
 ```c
@@ -262,7 +268,9 @@ EOF
 
 == Exercice 6
 
-#rect([ Développez un petit module permettant d’instancier un thread dans le noyau. Ce thread affichera un message toutes les 5 secondes. Il pourra être mis en sommeil durant ces 5 secondes à l’aide de la fonction ssleep(5) provenant de l’interface \<linux/delay.h>. ])
+#rect(
+  [ Développez un petit module permettant d’instancier un thread dans le noyau. Ce thread affichera un message toutes les 5 secondes. Il pourra être mis en sommeil durant ces 5 secondes à l’aide de la fonction ssleep(5) provenant de l’interface \<linux/delay.h>. ],
+)
 
 Feedback sur la page #link("https://mse-csel.github.io/website/lecture/programmation-noyau/modules/threads/")[Threads dans le noyau]: La phrase `Pour stopper un thread, il suffit d’utiliser la fonction kthread_stop` pourrait être améliorée par `Pour demander à un thread de s'arrêter`, puisqu'il est nécessaire de vérifier `kthread_should_stop` dans le thread.
 
@@ -300,7 +308,7 @@ Retirer le module gère l'arrêt correctement.
 == Exercice 7
 
 #rect([
-Développez un petit module permettant d’instancier deux threads dans le noyau. Le premier thread attendra une notification de réveil du deuxième thread et se remettra en sommeil. Le 2ème thread enverra cette notification toutes les 5 secondes et se rendormira. On utilisera les waitqueues pour les mises en sommeil. Afin de permettre le debugging du module, chaque thread affichera un petit message à chaque réveil.
+  Développez un petit module permettant d’instancier deux threads dans le noyau. Le premier thread attendra une notification de réveil du deuxième thread et se remettra en sommeil. Le 2ème thread enverra cette notification toutes les 5 secondes et se rendormira. On utilisera les waitqueues pour les mises en sommeil. Afin de permettre le debugging du module, chaque thread affichera un petit message à chaque réveil.
 ])
 
 A part quelques difficultés à bien gérer la terminaison du thread 1, à cause d'un `kthread_should_stop` manquant, l'exercice a fonctionné. Les tests manuels ne sont pas toujours évident à reproduire, surtout quand un thread ne se réveille pas sur `rmmod mymodule` et qu'on est forcé de redémarrer la carte. Nous avons essayés de `kill` le thread dans ce cas, en vain.
@@ -330,7 +338,9 @@ A part quelques difficultés à bien gérer la terminaison du thread 1, à cause
 
 == Exercice 8
 
-#rect([ Développez un petit module permettant de capturer les pressions exercées sur les switches de la carte d’extension par interruption. Afin de permettre le debugging du module, chaque capture affichera un petit message. ])
+#rect(
+  [ Développez un petit module permettant de capturer les pressions exercées sur les switches de la carte d’extension par interruption. Afin de permettre le debugging du module, chaque capture affichera un petit message. ],
+)
 
 En pressant bouton 1, 2, 3, 3, 2, puis 1, on obtient bien le résultat attendu.
 ```
@@ -378,13 +388,12 @@ Après recherche avec ChatGPT, nous avons trouvé le problème: l'ID passée dan
 
 *Feedback pour le cours, notamment lié à ce problème rencontré*
 
-1. _dev_name → nom du périphérique d’interruption_ 
+1. _dev_name → nom du périphérique d’interruption_
 
   Ce paramètre semble être complètement arbitraire et uniquement utile au debug, est-ce le cas ?
 
-2. _dev_id → paramètre spécifique à l’application(doit impérativement être non nul)_
+2. _dev_id → paramètre spécifique à l’application(doit impérativement être non nul si l’interruption est partagée IRQF_SHARED)_
 
-  Ceci est le cas si l’interruption est partagée IRQF_SHARED, sinon cela peut être nul.
   Rajouter qu'il est arbitraire mais doit être unique et le même pour `free_irq` ?
 
 3. _La commande cat /proc/interrupts fournit des informations très intéressantes sur l’état des interruptions avec le nom associé au vecteur d’interruption._
@@ -401,7 +410,7 @@ Après recherche avec ChatGPT, nous avons trouvé le problème: l'ID passée dan
    typedef irqreturn_t (*irq_handler_t)(int, void *);
   ```
 
-6. _flags → fanions de gestion des interruptions_ 
+6. _flags → fanions de gestion des interruptions_
 
   Comment savoir laquelle activer ??
 
@@ -409,7 +418,7 @@ Après recherche avec ChatGPT, nous avons trouvé le problème: l'ID passée dan
 
   Qu'est-ce que `irqs` (et pourquoi au pluriel) ? Que signifie `déclenché` ?
 
-8. _IRQF\_TRIGGER\_<xx> → fanion pour sélectionner le trigger (xx: FALLING, RISING, …)_ 
+8. _IRQF\_TRIGGER\_<xx> → fanion pour sélectionner le trigger (xx: FALLING, RISING, …)_
 
   Pas sûr de comprendre l'impact de ce flag. Intuitivement je pense au hooks keydown et keyup en JavaScript
   mais ce n'est probablement pas du tout ça, comme nous ne voyons pas la différence en testant à la main.
