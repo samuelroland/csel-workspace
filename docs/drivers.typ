@@ -6,18 +6,18 @@
   Réaliser un pilote orienté mémoire permettant de mapper en espace utilisateur les registres du microprocesseur en utilisant le fichier virtuel /dev/mem. Ce pilote permettra de lire l’identification du microprocesseur (Chip-ID aux adresses 0x01c1'4200 à 0x01c1'420c) décrit dans l’exercice “Accès aux entrées/sorties” du cours sur la programmation de modules noyau.
 ])
 
-Pas de problèmes avec ceci, la version proposé par l'étudiant défini la taille de page à 4KB à la place d'utiliser `getpagesize`, ce qui serait plus propre.
+Pas de problèmes avec ceci, notre version défini la taille de page à 4KB à la place d'utiliser `getpagesize`, ce qui serait plus propre.
 
 On n'utilise pas de `volatile` car c'est une valeur qui ne sera jamais modifiée.
 
-Version étudiant disponible dans le workspace `src/03_drivers/exercice01/main.c`
+Notre version disponible dans le workspace `src/03_drivers/exercice01/main.c`
 
 #line()
 
 == Exercice 2
 
 #rect([
-Implémenter un pilote de périphérique orienté caractère. Ce pilote sera capable de stocker dans une variable globale au module les données reçues par l’opération write et de les restituer par l’opération read. Pour tester le module, on utilisera les commandes echo et cat.
+  Implémenter un pilote de périphérique orienté caractère. Ce pilote sera capable de stocker dans une variable globale au module les données reçues par l’opération write et de les restituer par l’opération read. Pour tester le module, on utilisera les commandes echo et cat.
 ])
 
 Pour cet exercice, afin de compiler le code dans ma machine (sans les dev-container docker), les fichiers `buildroot_path` et `kernel_settings` ont dû être modifiés. En effet, ces fichiers ont le chemin vers les artifacts buildroot hard-codés sur `/buildroot/output`. Ceci est vrai pour les dev containers qui font un mount du volume dans `/buildroot` mais en natif ceci n'est pas le cas.
@@ -50,8 +50,8 @@ cat /proc/devices | grep mymodule
 ```
 
 ```sh
-> echo "test" > /dev/mymodule 
-> cat /dev/mymodule 
+> echo "test" > /dev/mymodule
+> cat /dev/mymodule
 test
 ```
 
@@ -80,7 +80,7 @@ static ssize_t skeleton_read(struct file* f,
 
 Pour la résoudre il suffit de retourner 0 si `remaining` est négatif ou égal à `0`.
 
-Un autre problème est dans la fonction `skeleton_init`. Si la fonction `alloc_chrdev_region` retourne une erreur, cette erreur n'est pas propagé. 
+Un autre problème est dans la fonction `skeleton_init`. Si la fonction `alloc_chrdev_region` retourne une erreur, cette erreur n'est pas propagé.
 
 ```c
 static int __init skeleton_init(void)
@@ -124,7 +124,7 @@ static int __init skeleton_init(void)
 == Exercice 3
 
 #rect([
-Etendre la fonctionnalité du pilote de l’exercice précédent afin que l’on puisse à l’aide d’un paramètre module spécifier le nombre d’instances. Pour chaque instance, on créera une variable unique permettant de stocker les données échangées avec l’application en espace utilisateur.
+  Etendre la fonctionnalité du pilote de l’exercice précédent afin que l’on puisse à l’aide d’un paramètre module spécifier le nombre d’instances. Pour chaque instance, on créera une variable unique permettant de stocker les données échangées avec l’application en espace utilisateur.
 ])
 
 1. Tout d'abord on ajoute le paramètre:
@@ -158,7 +158,7 @@ static int skeleton_open(struct inode* i, struct file* f)
 }
 ```
 
-Pour après le retrouver dans `read` et `write`:
+Ce qui permet de le retrouver dans `read` et `write`:
 
 ```c
 
@@ -180,7 +180,7 @@ static ssize_t skeleton_read(struct file* f,
 }
 ```
 
-4. Finalement, il faut tout initializer correctement dans `skeleton_init`:
+4. Finalement, il faut tout initialiser correctement dans `skeleton_init`:
 
 ```c
 static int __init skeleton_init(void)
@@ -245,7 +245,7 @@ insmod: can't insert 'mymodule.ko': Invalid argument
 > dmesg | tail -n 1
 [  458.203216] Linux module skeleton loaded. Instance count is 3
 
-# Création des noeudsj
+# Création des noeuds
 > mknod /dev/mymodule0 c 511 0
 > mknod /dev/mymodule1 c 511 1
 > mknod /dev/mymodule2 c 511 2
@@ -267,7 +267,7 @@ test2
 == Exercice 4
 
 #rect([
-Développer une petite application en espace utilisateur permettant d’accéder à ces pilotes orientés caractère. L’application devra écrire un texte dans le pilote et le relire.
+  Développer une petite application en espace utilisateur permettant d’accéder à ces pilotes orientés caractère. L’application devra écrire un texte dans le pilote et le relire.
 ])
 
 Pour cet exercice, la première implémentation consistait à ouvrir chaque fichier, écrire dans ces fichiers et ensuite lire avant de refermer les fichiers. `open()` -> `write()` -> `read()` -> `close()`.
@@ -277,7 +277,7 @@ on va essayer de lire trop loin dans le buffer ce qui ne retournera rien.
 
 Pour résoudre ce problème, on peut fermer les fichiers entre le `write()` et `read()` ou bien replacer l'offset à 0, avec `lseek()`.
 
-La première solution marche par défaut et est la solution proposé dans le workspace. 
+La première solution marche par défaut et est la solution proposé dans le workspace.
 
 La deuxième demande l'implémentation du callback `llseek` au niveau du module afin de modifier `f_pos`.
 
@@ -324,9 +324,9 @@ static struct file_operations skeleton_fops = {
 == Exercice 5
 
 #rect([
-Développer un pilote de périphérique orienté caractère permettant de valider la fonctionnalité du sysfs. Le pilote offrira quelques attributs pouvant être lus et écrites avec les commandes echo et cat. Ces attributs seront disponibles sous l’arborescence /sys/class/....
+  Développer un pilote de périphérique orienté caractère permettant de valider la fonctionnalité du sysfs. Le pilote offrira quelques attributs pouvant être lus et écrites avec les commandes echo et cat. Ces attributs seront disponibles sous l’arborescence /sys/class/....
 
-Dans un premier temps, implémentez juste ce qu’il faut pour créer une nouvelle classe (par exemple : my_sysfs_class)
+  Dans un premier temps, implémentez juste ce qu’il faut pour créer une nouvelle classe (par exemple : my_sysfs_class)
 ])
 
 Aucun problème avec la solution proposée
@@ -335,16 +335,16 @@ Aucun problème avec la solution proposée
 
 #rect([
 
-Ajoutez maintenant les opérations sur les fichiers définies à l’exercice #3. Vous pouvez définir une classe comme dans l’exercice précédent, ou vous pouvez utiliser un platform_device, ou encore un miscdevice.
+  Ajoutez maintenant les opérations sur les fichiers définies à l’exercice #3. Vous pouvez définir une classe comme dans l’exercice précédent, ou vous pouvez utiliser un platform_device, ou encore un miscdevice.
 ])
 
 Pour cet exercice, la solution contient un problème où le driver n'est pas déinitialisé correctement.
 Ceci peut être vérifié en insérant le module, en l'enlevant et finalement en l'insérant à nouveau.
 
 ```sh
-> insmod mymodule.ko 
+> insmod mymodule.ko
 > rmmod mymodule
-> insmod mymodule.ko 
+> insmod mymodule.ko
 Segmentation fault
 ```
 
@@ -363,9 +363,9 @@ Pour corriger il suffit d'utilser le bon `dev_t`:
 ```
 
 ```sh
-> insmod mymodule.ko 
+> insmod mymodule.ko
 > rmmod mymodule
-> insmod mymodule.ko 
+> insmod mymodule.ko
 > rmmod mymodule
 ```
 
@@ -374,7 +374,7 @@ Pour corriger il suffit d'utilser le bon `dev_t`:
 == Exercice 7
 
 #rect([
-Développer un pilote et une application utilisant les entrées/sorties bloquantes pour signaler une interruption matérielle provenant de l’un des switches de la carte d’extension du NanoPI. L’application utilisera le service select pour compter le nombre d’interruptions.
+  Développer un pilote et une application utilisant les entrées/sorties bloquantes pour signaler une interruption matérielle provenant de l’un des switches de la carte d’extension du NanoPI. L’application utilisera le service select pour compter le nombre d’interruptions.
 ])
 
 Le pilote d'exemple contient un bug, si un des IRQ n'est pas enregistré correctement `devm_request_irq` ne retourne pas `0`, le `misc_device` n'est pas effacé. A ce point, une entrée `sysfs` dans `/sys/class/misc/mymodule` persistera et l'enregistrement suivant va directement rater au moment du `misc_register`.
@@ -413,7 +413,7 @@ On peut donc passer des pointeurs sur ces variables sur le paramètre `dev_id`. 
                          (void*)&K1);
 ```
 
-Ceci est nécéssaire car les IRQs sont du type `shared`, alor linux oblige que `dev_id` ne soit pas `NULL`. Comme `K1` vaut `0`, ceci est interprète comme NULL et le `irq` n'est pas enregistré (error -22). Si l'IRQ n'était pas `SHARED`, on aurait pu tout simplement passer la valeur dans le pointeur:
+Ceci est nécessaire car les IRQs sont du type `shared`, alors Linux oblige que `dev_id` ne soit pas `NULL`. Comme `K1` vaut `0`, ceci est interprète comme `NULL` et le `irq` n'est pas enregistré (error -22). Si l'IRQ n'était pas `SHARED`, on aurait pu tout simplement passer la valeur dans le pointeur:
 
 ```c
     #define K1 0
@@ -441,7 +441,7 @@ irqreturn_t gpio_isr(int irq, void* handle)
 3. Ajout de la possibilité de lecture de `last_key` dans la callback `read`:
 
 ```c
-static ssize_t skeleton_read(struct file* f, char __user* buf, size_t sz, loff_t* off) 
+static ssize_t skeleton_read(struct file* f, char __user* buf, size_t sz, loff_t* off)
 {
     char tmp[sizeof(int) + 1];
     int bytes;
@@ -525,5 +525,5 @@ Press any (physical) button
 You pressed button 0!
 ```
 
-Le manque d'anti-rebond est bien présent, car pas tous les lancements de l'application `app` bloquent pour attendre la pression d'un bouton.
+Le manque d'anti-rebond est bien présent, car certains des lancements de l'application `app` ne bloquent pas sur l'attente de pression d'un bouton.
 
