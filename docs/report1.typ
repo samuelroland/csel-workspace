@@ -31,6 +31,8 @@ Notre fork du repository Git est disponible sur #link("https://github.com/samuel
 
 Notre fork du repository buildroot est disponible sur #link("https://github.com/AndreCostaaa/buildroot/tree/csel").
 
+A noter que nous avons déplacé les solutions existantes dans un fichier de solution pour y ajouter notre implémentation. Par exemple le `skeleton.c` fourni a été renommé en `skeleton.sol.c` et notre implémentation se trouve dans `skeleton.c`.
+
 #outline(title: "Table des matières")
 
 #pagebreak()
