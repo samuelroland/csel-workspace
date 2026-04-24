@@ -31,9 +31,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/epoll.h>
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <syslog.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -46,12 +48,10 @@
 #define K3 "3"
 #define LED "10"
 
-#define MS_TO_NS(ms) (ms * 1000000)
+#define KEY_COUNT 3
 
-#define NS_TO_US(ns) (ns / 1000)
-#define NS_TO_MS(ns) (ns / 1000000)
-#define NS_TO_S(ns) (ns / 1000000000)
-#define DEFAULT_PERIOD_NS (MS_TO_NS(500))
+#define DEFAULT_PERIOD_MS (500)
+#define PERIOD_DELTA_MS (100)
 
 typedef enum { GPIO_INPUT, GPIO_OUTPUT } gpio_dir_t;
 typedef enum { GPIO_LOW, GPIO_HIGH } gpio_state_t;
@@ -95,37 +95,46 @@ static gpio_state_t gpio_state_from_str(const char* str)
     return GPIO_LOW;
 }
 
-static void gpio_init(gpio_t* gpio, const char* name, gpio_dir_t dir)
+static void gpio_init(gpio_t* gpio)
 {
+    assert(gpio);
+    assert(gpio->name);
+    assert(gpio->dir);
+
     // unexport pin out of sysfs (reinitialization)
     int f = open(GPIO_UNEXPORT, O_WRONLY);
 
-    write(f, name, strlen(name));
+    write(f, gpio->name, strlen(gpio->name));
     close(f);
 
     // export pin to sysfs
     f = open(GPIO_EXPORT, O_WRONLY);
-    write(f, name, strlen(name));
+    write(f, gpio->name, strlen(gpio->name));
     close(f);
 
     char path[128];
 
     // config pin
-    const char* direction = gpio_dir_to_str(dir);
-    snprintf(path, sizeof(path), "%s%s%s", GPIO, name, "/direction");
+    const char* direction = gpio_dir_to_str(gpio->dir);
+    snprintf(path, sizeof(path), "%s%s%s", GPIO, gpio->name, "/direction");
 
     f = open(path, O_WRONLY);
     write(f, direction, strlen(direction));
     close(f);
 
-    snprintf(path, sizeof(path), "%s%s%s", GPIO, name, "/value");
+    if (gpio->dir == GPIO_INPUT) {
+        snprintf(path, sizeof(path), "%s%s%s", GPIO, gpio->name, "/edge");
+        f = open(path, O_WRONLY);
+
+        const char* edge = "rising";
+        write(f, edge, strlen(edge));
+        close(f);
+    }
+
+    snprintf(path, sizeof(path), "%s%s%s", GPIO, gpio->name, "/value");
 
     // open gpio value attribute
-    f = open(path, O_RDWR);
-
-    gpio->fd   = f;
-    gpio->name = name;
-    gpio->dir  = dir;
+    gpio->fd = open(path, O_RDWR);
 }
 
 static void gpio_write(gpio_t* gpio, gpio_state_t state)
@@ -159,7 +168,8 @@ static gpio_state_t gpio_read(gpio_t* gpio)
         return GPIO_LOW;
     }
     assert(len > 0);
-    state[len]  = '\0';
+    state[len] = '\0';
+    printf("Read %s from %s\n", state, gpio->name);
     gpio->state = gpio_state_from_str(state);
     return gpio->state;
 }
@@ -174,6 +184,51 @@ static void gpio_deinit(gpio_t* gpio)
     close(gpio->fd);
 }
 
+static uint64_t period_ms;
+static uint64_t default_period_ms = DEFAULT_PERIOD_MS;
+
+struct key_ctx;
+
+typedef void (*on_key_press_cb_t)(struct key_ctx* ctx);
+
+typedef union {
+    on_key_press_cb_t fn;
+    void* ptr;
+} key_press_t;
+
+typedef struct key_ctx {
+    on_key_press_cb_t key_press_cb;
+    gpio_t btn;
+} key_ctx_t;
+
+static void on_k1_press(key_ctx_t* ctx)
+{
+    (void)gpio_read(&ctx->btn);
+    if (period_ms < PERIOD_DELTA_MS) {
+        syslog(LOG_WARNING, "Fréquence hors plage !");
+        return;
+    }
+    period_ms -= PERIOD_DELTA_MS;
+    syslog(LOG_INFO, "Decreased period to %" PRIu64 "ms\n", period_ms);
+}
+static void on_k2_press(key_ctx_t* ctx)
+{
+    (void)gpio_read(&ctx->btn);
+    period_ms = default_period_ms;
+
+    syslog(LOG_INFO, "Resetting period to %" PRIu64 "ms\n", period_ms);
+}
+
+static void on_k3_press(key_ctx_t* ctx)
+{
+    (void)gpio_read(&ctx->btn);
+    if (period_ms > UINT64_MAX - PERIOD_DELTA_MS) {
+        return;
+    }
+    period_ms += PERIOD_DELTA_MS;
+    syslog(LOG_INFO, "Increased period to %" PRIu64 "ms\n", period_ms);
+}
+
 /*
  * status led - gpioa.10 --> gpio10
  * power led  - gpiol.10 --> gpio362
@@ -181,51 +236,60 @@ static void gpio_deinit(gpio_t* gpio)
 
 int main(int argc, char* argv[])
 {
-    uint64_t default_period_ns = DEFAULT_PERIOD_NS;
+    int ret = EXIT_SUCCESS;
     if (argc >= 2) {
-        default_period_ns = MS_TO_NS(atoi(argv[1]));
+        default_period_ms = atoi(argv[1]);
     }
-    uint64_t period_ns = default_period_ns;
 
-    gpio_t led, k1, k2, k3;
-    gpio_t* gpios[] = {&led, &k1, &k2, &k3};
+    openlog("not_silly_led_control", LOG_PID | LOG_CONS, LOG_DAEMON);
 
-    gpio_init(&led, LED, GPIO_OUTPUT);
-    gpio_init(&k1, K1, GPIO_INPUT);
-    gpio_init(&k2, K2, GPIO_INPUT);
-    gpio_init(&k3, K3, GPIO_INPUT);
+    int epfd = epoll_create1(0);
+    if (epfd < 0) {
+        perror("epoll_create");
+        return EXIT_FAILURE;
+    }
 
-    int max_fd = -1;
+    period_ms  = default_period_ms;
+    gpio_t led = {.name = LED, .dir = GPIO_OUTPUT};
 
-    for (size_t i = 0; i < sizeof(gpios) / sizeof(gpios[0]); ++i) {
-        if (gpios[i]->fd > max_fd) {
-            max_fd = gpios[i]->fd;
+    key_ctx_t key_ctx[KEY_COUNT] = {
+        [0] = {.btn          = {.name = K1, .dir = GPIO_INPUT},
+               .key_press_cb = on_k1_press},
+        [1] = {.btn          = {.name = K2, .dir = GPIO_INPUT},
+               .key_press_cb = on_k2_press},
+        [2] = {.btn          = {.name = K3, .dir = GPIO_INPUT},
+               .key_press_cb = on_k3_press},
+    };
+    for (size_t i = 0; i < KEY_COUNT; ++i) {
+        gpio_init(&key_ctx[i].btn);
+    }
+
+    gpio_init(&led);
+
+    struct epoll_event events[KEY_COUNT];
+
+    const size_t event_cnt = sizeof(events) / sizeof(events[0]);
+
+    for (size_t i = 0; i < KEY_COUNT; ++i) {
+        struct epoll_event event = {.events = EPOLLERR,
+                                    .data   = {.ptr = &key_ctx[i]}};
+
+        int err = epoll_ctl(epfd, EPOLL_CTL_ADD, key_ctx[i].btn.fd, &event);
+        if (err < 0) {
+            perror("epoll_ctl");
+            ret = EXIT_FAILURE;
+            goto cleanup;
         }
     }
 
-    fd_set k_set;
-
-    FD_ZERO(&k_set);
-
-    FD_SET(k1.fd, &k_set);
-    FD_SET(k2.fd, &k_set);
-    FD_SET(k3.fd, &k_set);
-
     gpio_write(&led, GPIO_HIGH);
 
-    struct timespec t1;
-    clock_gettime(CLOCK_MONOTONIC, &t1);
-
     while (1) {
-        const uint64_t sec = NS_TO_S(period_ns);
-        const uint64_t usec =
-            NS_TO_US(period_ns) - (NS_TO_S(period_ns) * 1000000);
-
-        struct timeval tv = {.tv_sec = sec, .tv_usec = usec};
-        int ret           = select(max_fd + 1, NULL, NULL, &k_set, &tv);
+        struct epoll_event events[event_cnt];
+        int ret = epoll_wait(epfd, events, event_cnt, period_ms);
 
         if (ret < 0) {
-            perror("select");
+            perror("epoll_wait");
             continue;
         }
         if (ret == 0) {
@@ -239,23 +303,18 @@ int main(int argc, char* argv[])
             continue;
         }
 
-        if (gpio_read(&k1) == GPIO_LOW && period_ns >= MS_TO_NS(100)) {
-            period_ns -= MS_TO_NS(100);
-            printf("Decreased period to %" PRIu64 "ms\n", NS_TO_MS(period_ns));
-        }
-        if (gpio_read(&k2) == GPIO_LOW) {
-            period_ns = default_period_ns;
-            printf("Resetting period to %" PRIu64 "ms\n", NS_TO_MS(period_ns));
-        }
-        if (gpio_read(&k3) == GPIO_LOW &&
-            period_ns <= UINT64_MAX - MS_TO_NS(100)) {
-            period_ns += MS_TO_NS(100);
-            printf("Increased period to %" PRIu64 "ms\n", NS_TO_MS(period_ns));
+        for (size_t i = 0; i < (size_t)ret; ++i) {
+            key_ctx_t* ctx = (key_ctx_t*)events[i].data.ptr;
+            assert(ctx);
+            ctx->key_press_cb(ctx);
         }
     }
-    for (size_t i = 0; i < sizeof(gpios) / sizeof(gpios[0]); ++i) {
-        gpio_deinit(gpios[i]);
+cleanup:
+    for (size_t i = 0; i < KEY_COUNT; ++i) {
+        gpio_deinit(&key_ctx[i].btn);
     }
+    gpio_deinit(&led);
+    closelog();
 
-    return 0;
+    return ret;
 }
