@@ -69,7 +69,7 @@ static const char* gpio_dir_to_str(gpio_dir_t dir)
         case GPIO_INPUT:
             return "in";
         case GPIO_OUTPUT:
-            return "output";
+            return "out";
     }
     assert(0);
 }
@@ -95,46 +95,95 @@ static gpio_state_t gpio_state_from_str(const char* str)
     return GPIO_LOW;
 }
 
-static void gpio_init(gpio_t* gpio)
+static int echo(const char* path, const char* value)
+{
+    int f = open(path, O_WRONLY);
+    if (f < 0) {
+        fprintf(stderr, "failed to open '%s': '%s'\n", path, strerror(errno));
+        return f;
+    }
+    ssize_t ret = write(f, value, strlen(value));
+    close(f);
+    if (ret < 0) {
+        fprintf(stderr,
+                "failed to write '%s' to %s': '%s'\n",
+                value,
+                path,
+                strerror(errno));
+        return ret;
+    }
+    return 0;
+}
+static int gpio_init(gpio_t* gpio)
 {
     assert(gpio);
     assert(gpio->name);
-    assert(gpio->dir);
 
-    // unexport pin out of sysfs (reinitialization)
-    int f = open(GPIO_UNEXPORT, O_WRONLY);
-
-    write(f, gpio->name, strlen(gpio->name));
-    close(f);
-
-    // export pin to sysfs
-    f = open(GPIO_EXPORT, O_WRONLY);
-    write(f, gpio->name, strlen(gpio->name));
-    close(f);
+    printf("Initializing gpio %s\n", gpio->name);
 
     char path[128];
+    snprintf(path, sizeof(path), "%s%s", GPIO, gpio->name);
+    int ret;
+    if (access(path, F_OK) == 0) {
+        ret = echo(GPIO_UNEXPORT, gpio->name);
+        if (ret) {
+            return ret;
+        }
+    }
+
+    // export pin to sysfs
+    ret = echo(GPIO_EXPORT, gpio->name);
+    if (ret) {
+        goto err;
+    }
 
     // config pin
     const char* direction = gpio_dir_to_str(gpio->dir);
     snprintf(path, sizeof(path), "%s%s%s", GPIO, gpio->name, "/direction");
-
-    f = open(path, O_WRONLY);
-    write(f, direction, strlen(direction));
-    close(f);
+    ret = echo(path, direction);
+    if (ret) {
+        goto err;
+    }
 
     if (gpio->dir == GPIO_INPUT) {
         snprintf(path, sizeof(path), "%s%s%s", GPIO, gpio->name, "/edge");
-        f = open(path, O_WRONLY);
-
-        const char* edge = "rising";
-        write(f, edge, strlen(edge));
-        close(f);
+        ret = echo(path, "rising");
+        if (ret) {
+            goto err;
+        }
     }
 
     snprintf(path, sizeof(path), "%s%s%s", GPIO, gpio->name, "/value");
 
+    int f = open(path, O_RDWR);
+    if (f < 0) {
+        perror("open value");
+        goto err;
+    }
+
     // open gpio value attribute
-    gpio->fd = open(path, O_RDWR);
+    gpio->fd = f;
+    return 0;
+
+err: {
+    int err = echo(GPIO_UNEXPORT, gpio->name);
+    if (err < 0) {
+        fprintf(stderr, "failed to unexport device after previous error");
+    }
+    return -1;
+    f = open(GPIO_UNEXPORT, O_WRONLY);
+    if (f < 0) {
+        perror("open unexport");
+        return f;
+    }
+    ret = write(f, gpio->name, strlen(gpio->name));
+    close(f);
+    if (ret) {
+        perror("write unexport");
+        return ret;
+    }
+    return -1;
+}
 }
 
 static void gpio_write(gpio_t* gpio, gpio_state_t state)
@@ -146,7 +195,7 @@ static void gpio_write(gpio_t* gpio, gpio_state_t state)
     ssize_t len = pwrite(gpio->fd, state_write, strlen(state_write), 0);
     if (len < 0) {
         fprintf(stderr,
-                "failed to read state %s: '%s'\n",
+                "failed to write state %s: '%s'\n",
                 gpio->name,
                 strerror(errno));
         return;
@@ -168,8 +217,7 @@ static gpio_state_t gpio_read(gpio_t* gpio)
         return GPIO_LOW;
     }
     assert(len > 0);
-    state[len] = '\0';
-    printf("Read %s from %s\n", state, gpio->name);
+    state[len]  = '\0';
     gpio->state = gpio_state_from_str(state);
     return gpio->state;
 }
@@ -204,8 +252,8 @@ typedef struct key_ctx {
 static void on_k1_press(key_ctx_t* ctx)
 {
     (void)gpio_read(&ctx->btn);
-    if (period_ms < PERIOD_DELTA_MS) {
-        syslog(LOG_WARNING, "Fréquence hors plage !");
+    if (period_ms <= PERIOD_DELTA_MS) {
+        syslog(LOG_WARNING, "Minimum period reached (%" PRIu64 ")", period_ms);
         return;
     }
     period_ms -= PERIOD_DELTA_MS;
@@ -223,6 +271,7 @@ static void on_k3_press(key_ctx_t* ctx)
 {
     (void)gpio_read(&ctx->btn);
     if (period_ms > UINT64_MAX - PERIOD_DELTA_MS) {
+        syslog(LOG_WARNING, "Maximum period reached (%" PRIu64 ")", period_ms);
         return;
     }
     period_ms += PERIOD_DELTA_MS;
@@ -251,6 +300,11 @@ int main(int argc, char* argv[])
 
     period_ms  = default_period_ms;
     gpio_t led = {.name = LED, .dir = GPIO_OUTPUT};
+    int err    = gpio_init(&led);
+    if (err) {
+        ret = EXIT_FAILURE;
+        goto cleanup;
+    }
 
     key_ctx_t key_ctx[KEY_COUNT] = {
         [0] = {.btn          = {.name = K1, .dir = GPIO_INPUT},
@@ -261,10 +315,12 @@ int main(int argc, char* argv[])
                .key_press_cb = on_k3_press},
     };
     for (size_t i = 0; i < KEY_COUNT; ++i) {
-        gpio_init(&key_ctx[i].btn);
+        int err = gpio_init(&key_ctx[i].btn);
+        if (err) {
+            ret = EXIT_FAILURE;
+            goto cleanup;
+        }
     }
-
-    gpio_init(&led);
 
     struct epoll_event events[KEY_COUNT];
 
@@ -293,11 +349,12 @@ int main(int argc, char* argv[])
             continue;
         }
         if (ret == 0) {
-            printf("Timeout, toggling led\n");
             /* timeout meaning we need to toggle the led*/
             if (led.state == GPIO_HIGH) {
+                syslog(LOG_DEBUG, "Led Off");
                 gpio_write(&led, GPIO_LOW);
             } else {
+                syslog(LOG_DEBUG, "Led On");
                 gpio_write(&led, GPIO_HIGH);
             }
             continue;
