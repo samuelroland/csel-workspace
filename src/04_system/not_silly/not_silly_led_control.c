@@ -23,6 +23,7 @@
  * Date:    07.11.2018
  */
 #include <assert.h>
+#include <bits/time.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -34,6 +35,7 @@
 #include <sys/epoll.h>
 #include <sys/select.h>
 #include <sys/stat.h>
+#include <sys/timerfd.h>
 #include <sys/types.h>
 #include <syslog.h>
 #include <time.h>
@@ -49,6 +51,7 @@
 #define LED "10"
 
 #define KEY_COUNT 3
+#define EVENT_COUNT (KEY_COUNT + 1)  // keys and 1 for timer
 
 #define DEFAULT_PERIOD_MS (500)
 #define PERIOD_DELTA_MS (100)
@@ -278,6 +281,22 @@ static void on_k3_press(key_ctx_t* ctx)
     syslog(LOG_INFO, "Increased period to %" PRIu64 "ms\n", period_ms);
 }
 
+int rearm_timer(int timerfd)
+{
+    struct itimerspec its = {
+        .it_interval = {0, 0},
+        .it_value =
+            {
+                .tv_sec  = period_ms / 1000,
+                .tv_nsec = (period_ms % 1000) * 1000000L,
+            },
+    };
+    if (timerfd_settime(timerfd, 0, &its, NULL) < 0) {
+        perror("timerfd_settime");
+        return -errno;
+    }
+    return 0;
+}
 /*
  * status led - gpioa.10 --> gpio10
  * power led  - gpiol.10 --> gpio362
@@ -285,24 +304,36 @@ static void on_k3_press(key_ctx_t* ctx)
 
 int main(int argc, char* argv[])
 {
-    int ret = EXIT_SUCCESS;
+    int err = EXIT_SUCCESS;
     if (argc >= 2) {
         default_period_ms = atoi(argv[1]);
     }
 
     openlog("not_silly_led_control", LOG_PID | LOG_CONS, LOG_DAEMON);
 
-    int epfd = epoll_create1(0);
+    int timerfd = -1;
+    int epfd    = -1;
+
+    timerfd = timerfd_create(CLOCK_REALTIME, 0);
+    if (timerfd < 0) {
+        perror("timerfd_create");
+        err = EXIT_FAILURE;
+        goto cleanup;
+    }
+
+    epfd = epoll_create1(0);
     if (epfd < 0) {
         perror("epoll_create");
-        return EXIT_FAILURE;
+        err = EXIT_FAILURE;
+        goto cleanup;
     }
 
     period_ms  = default_period_ms;
     gpio_t led = {.name = LED, .dir = GPIO_OUTPUT};
-    int err    = gpio_init(&led);
+    err        = gpio_init(&led);
     if (err) {
-        ret = EXIT_FAILURE;
+        perror("gpio_init");
+        err = EXIT_FAILURE;
         goto cleanup;
     }
 
@@ -317,14 +348,21 @@ int main(int argc, char* argv[])
     for (size_t i = 0; i < KEY_COUNT; ++i) {
         int err = gpio_init(&key_ctx[i].btn);
         if (err) {
-            ret = EXIT_FAILURE;
+            err = EXIT_FAILURE;
             goto cleanup;
         }
     }
 
-    struct epoll_event events[KEY_COUNT];
+    struct epoll_event events[EVENT_COUNT];
 
-    const size_t event_cnt = sizeof(events) / sizeof(events[0]);
+    struct epoll_event timer_event = {.events = EPOLLIN, .data = {.ptr = NULL}};
+
+    err = epoll_ctl(epfd, EPOLL_CTL_ADD, timerfd, &timer_event);
+    if (err) {
+        perror("epoll_ctl");
+        err = EXIT_FAILURE;
+        goto cleanup;
+    }
 
     for (size_t i = 0; i < KEY_COUNT; ++i) {
         struct epoll_event event = {.events = EPOLLERR,
@@ -333,7 +371,7 @@ int main(int argc, char* argv[])
         int err = epoll_ctl(epfd, EPOLL_CTL_ADD, key_ctx[i].btn.fd, &event);
         if (err < 0) {
             perror("epoll_ctl");
-            ret = EXIT_FAILURE;
+            err = EXIT_FAILURE;
             goto cleanup;
         }
     }
@@ -341,15 +379,28 @@ int main(int argc, char* argv[])
     gpio_write(&led, GPIO_HIGH);
 
     while (1) {
-        struct epoll_event events[event_cnt];
-        int ret = epoll_wait(epfd, events, event_cnt, period_ms);
+        struct epoll_event events[EVENT_COUNT];
 
-        if (ret < 0) {
+        err = rearm_timer(timerfd);
+        if (err < 0) {
+            continue;
+        }
+
+        err = epoll_wait(epfd, events, EVENT_COUNT, -1);
+        if (err < 0) {
             perror("epoll_wait");
             continue;
         }
-        if (ret == 0) {
-            /* timeout meaning we need to toggle the led*/
+        /* ret should never be 0 as we set a infinite timeout*/
+        assert(err != 0);
+        for (size_t i = 0; i < (size_t)err; ++i) {
+            key_ctx_t* ctx = (key_ctx_t*)events[i].data.ptr;
+
+            const bool is_timer_event = ctx == NULL;
+            if (ctx) {
+                ctx->key_press_cb(ctx);
+                continue;
+            }
             if (led.state == GPIO_HIGH) {
                 syslog(LOG_DEBUG, "Led Off");
                 gpio_write(&led, GPIO_LOW);
@@ -357,21 +408,20 @@ int main(int argc, char* argv[])
                 syslog(LOG_DEBUG, "Led On");
                 gpio_write(&led, GPIO_HIGH);
             }
-            continue;
-        }
-
-        for (size_t i = 0; i < (size_t)ret; ++i) {
-            key_ctx_t* ctx = (key_ctx_t*)events[i].data.ptr;
-            assert(ctx);
-            ctx->key_press_cb(ctx);
         }
     }
 cleanup:
+    if (timerfd > 0) {
+        close(epfd);
+    }
+    if (epfd > 0) {
+        close(epfd);
+    }
     for (size_t i = 0; i < KEY_COUNT; ++i) {
         gpio_deinit(&key_ctx[i].btn);
     }
     gpio_deinit(&led);
     closelog();
 
-    return ret;
+    return err;
 }
