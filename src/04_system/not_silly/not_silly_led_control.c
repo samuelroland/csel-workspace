@@ -317,14 +317,12 @@ int main(int argc, char* argv[])
     timerfd = timerfd_create(CLOCK_REALTIME, 0);
     if (timerfd < 0) {
         perror("timerfd_create");
-        err = EXIT_FAILURE;
         goto cleanup;
     }
 
     epfd = epoll_create1(0);
     if (epfd < 0) {
         perror("epoll_create");
-        err = EXIT_FAILURE;
         goto cleanup;
     }
 
@@ -333,7 +331,6 @@ int main(int argc, char* argv[])
     err        = gpio_init(&led);
     if (err) {
         perror("gpio_init");
-        err = EXIT_FAILURE;
         goto cleanup;
     }
 
@@ -348,7 +345,6 @@ int main(int argc, char* argv[])
     for (size_t i = 0; i < KEY_COUNT; ++i) {
         int err = gpio_init(&key_ctx[i].btn);
         if (err) {
-            err = EXIT_FAILURE;
             goto cleanup;
         }
     }
@@ -358,7 +354,6 @@ int main(int argc, char* argv[])
     err = epoll_ctl(epfd, EPOLL_CTL_ADD, timerfd, &timer_event);
     if (err) {
         perror("epoll_ctl");
-        err = EXIT_FAILURE;
         goto cleanup;
     }
 
@@ -369,7 +364,6 @@ int main(int argc, char* argv[])
         int err = epoll_ctl(epfd, EPOLL_CTL_ADD, key_ctx[i].btn.fd, &event);
         if (err < 0) {
             perror("epoll_ctl");
-            err = EXIT_FAILURE;
             goto cleanup;
         }
     }
