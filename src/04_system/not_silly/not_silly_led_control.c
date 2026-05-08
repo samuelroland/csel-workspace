@@ -353,8 +353,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    struct epoll_event events[EVENT_COUNT];
-
     struct epoll_event timer_event = {.events = EPOLLIN, .data = {.ptr = NULL}};
 
     err = epoll_ctl(epfd, EPOLL_CTL_ADD, timerfd, &timer_event);
@@ -378,13 +376,14 @@ int main(int argc, char* argv[])
 
     gpio_write(&led, GPIO_HIGH);
 
+    err = rearm_timer(timerfd);
+    if (err) {
+        perror("rearm_timer");
+        goto cleanup;
+    }
+
     while (1) {
         struct epoll_event events[EVENT_COUNT];
-
-        err = rearm_timer(timerfd);
-        if (err < 0) {
-            continue;
-        }
 
         err = epoll_wait(epfd, events, EVENT_COUNT, -1);
         if (err < 0) {
@@ -396,17 +395,24 @@ int main(int argc, char* argv[])
         for (size_t i = 0; i < (size_t)err; ++i) {
             key_ctx_t* ctx = (key_ctx_t*)events[i].data.ptr;
 
-            const bool is_timer_event = ctx == NULL;
+            /* ctx is only set for button presses*/
             if (ctx) {
                 ctx->key_press_cb(ctx);
+                /* do not toggle nor rearm the timer as it was a button press*/
                 continue;
             }
+
             if (led.state == GPIO_HIGH) {
                 syslog(LOG_DEBUG, "Led Off");
                 gpio_write(&led, GPIO_LOW);
             } else {
                 syslog(LOG_DEBUG, "Led On");
                 gpio_write(&led, GPIO_HIGH);
+            }
+            /* timer event means we need to rearm it*/
+            err = rearm_timer(timerfd);
+            if (err < 0) {
+                continue;
             }
         }
     }
