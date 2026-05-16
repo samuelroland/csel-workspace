@@ -1,8 +1,9 @@
-#include <stddef.h>
 #define _GNU_SOURCE
 #include <asm-generic/errno-base.h>
+#include <errno.h>
 #include <sched.h>
 #include <signal.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,14 +26,18 @@ void constrain_current_process_on_core(int core_idx) {
 void safe_write(int fd, const void* buf, size_t len) {
     int res = write(fd, buf, len);
     while (res < len) {
-        if (res == EINTR) {  // if EINTR, no byte were written at all
-            res = write(fd, buf, len);
-        } else if (res < 0) {  // another error, cannot recover
-            perror("Failed to write");
-            exit(EXIT_FAILURE);
+        if (res < 0) {
+            if (errno == EINTR) {  // if EINTR, no byte were written at all
+                perror("EINTR in write");
+                res = write(fd, buf, len);
+            } else {  // another error, cannot recover
+                perror("Failed to write");
+                exit(EXIT_FAILURE);
+            }
         } else {  // write the remaining bytes
             len -= res;
-            res = write(fd, buf + res, len);
+            buf += res;
+            res = write(fd, buf, len);
         }
     }
 }
@@ -41,17 +46,20 @@ void safe_read_msg(int fd, char* message, size_t buflen) {
     int res = read(fd, message, buflen);
     while (res < buflen) {
         if (res == 0) break;
-        if (res == EINTR) {
-            res = read(fd, message, buflen);
-        } else if (res < 0) {
-            perror("Failed to read");
-            exit(EXIT_FAILURE);
+        if (res < 0) {
+            if (errno == EINTR) {
+                perror("EINTR in read");
+                res = read(fd, message, buflen);
+            } else {
+                perror("Failed to read");
+                exit(EXIT_FAILURE);
+            }
         } else {  // partial read
             buflen -= res;
-            res = read(fd, message + res, buflen);
+            message += res;
+            res = read(fd, message, buflen);
         }
     }
-    message[res - 1] = '\0';  // force latest received byte to be NULL
 }
 
 int main(int argc, char* argv[]) {
