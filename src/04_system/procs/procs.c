@@ -22,43 +22,49 @@ void constrain_current_process_on_core(int core_idx) {
 #define MESSAGE_LEN 10
 #define EXIT_CMD "exit"
 
-// Safe version of write() resisting waking up via signals.
+// Safe version of write() resisting partial
+// or empty write caused by interuptions
+// This will always write exactly `len` bytes.
 void safe_write(int fd, const void* buf, size_t len) {
-    int res = write(fd, buf, len);
-    while (res < len) {
+    size_t total = 0;
+    int res = 0;
+    while (total < len) {
+        res = write(fd, buf + total, len - total);
         if (res < 0) {
             if (errno == EINTR) {  // if EINTR, no byte were written at all
-                perror("EINTR in write");
-                res = write(fd, buf, len);
-            } else {  // another error, cannot recover
+                continue;          // ignore and continue to write again
+            } else {               // another error, cannot recover
                 perror("Failed to write");
                 exit(EXIT_FAILURE);
             }
         } else {  // write the remaining bytes
-            len -= res;
-            buf += res;
-            res = write(fd, buf, len);
+            total += res;
         }
     }
 }
 
-void safe_read_msg(int fd, char* message, size_t buflen) {
-    int res = read(fd, message, buflen);
-    while (res < buflen) {
+// Safe version of read() resisting partial
+// or empty read caused by interuptions.
+// This will always read exactly `len` bytes.
+void safe_read_msg(int fd, char* message, size_t len) {
+    size_t total = 0;
+    int res = 0;
+    while (total < len) {
+        res = read(fd, message + total, len - total);
         if (res == 0) break;
         if (res < 0) {
             if (errno == EINTR) {
-                perror("EINTR in read");
-                res = read(fd, message, buflen);
+                continue;  // ignore and continue to read again
             } else {
                 perror("Failed to read");
                 exit(EXIT_FAILURE);
             }
         } else {  // partial read
-            buflen -= res;
-            message += res;
-            res = read(fd, message, buflen);
+            total += res;
         }
+    }
+    if (total > 0) {
+        message[total - 1] = '\0';
     }
 }
 
@@ -88,7 +94,7 @@ int main(int argc, char* argv[]) {
         constrain_current_process_on_core(1);
         close(fd[0]);
         char message[MESSAGE_LEN];
-        for (int i = 0; i < 4; i++) {
+        for (int i = 1; i <= 4; i++) {
             printf("child: Sending message %d to parent\n", i);
             snprintf(message, MESSAGE_LEN, "Hello %d", i);
             safe_write(fd[1], message, MESSAGE_LEN);
