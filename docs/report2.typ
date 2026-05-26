@@ -43,3 +43,6 @@ TODO: toujours le cas ??
 
 #pagebreak()
 #include "./procs.typ"
+
+== Conclusion
+TODO

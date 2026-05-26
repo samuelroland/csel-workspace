@@ -63,27 +63,7 @@ parent: Got message: 'exit'
 Une version safe de sleep n'a pas été intégrée comme elle existait déjà dans le cours. De plus, il n'est pas évident de tester si les contraintes sur les coeurs marchent vraiment, comme l'activité CPU est faible.
 
 == CGroups
-
-/*
-Exercice #2: Concevez une petite application permettant de valider la capacité des groupes de contrôle à limiter l’utilisation de la mémoire.
-Quelques indications pour la création du programme :
-
-Allouer un nombre défini de blocs de mémoire d’un mébibyte1, par exemple 50
-Tester si le pointeur est non nul
-Remplir le bloc avec des 0
-
-Quelques indications pour monter les CGroups :
-
-```
-mount -t tmpfs none /sys/fs/cgroup
-mkdir /sys/fs/cgroup/memory
-mount -t cgroup -o memory memory /sys/fs/cgroup/memory
-mkdir /sys/fs/cgroup/memory/mem
-echo $$ > /sys/fs/cgroup/memory/mem/tasks
-echo 20M > /sys/fs/cgroup/memory/mem/memory.limit_in_bytes
-```
-*/
-
+Pas de difficulté particulière à écrire cet exemple, exception faite sur une légère confusion avec la consigne. Le texte #quote("Allouer un nombre défini de blocs de mémoire d’un mébibyte, par exemple 50") semble indiquer d'allouer 50 fois 1 mébibyte d'un seul coup, ce qui n'est pas très intéressant puisque la limite de 20MB est immédiatement dépassée. Nous avons donc alloué 1 mébibyte, 50 fois de suite en vérifiant entre chaque fois si l'allocation fonctionne.
 
 === Réponses aux questions
 #quote("Quel effet a la commande echo $$ > ... sur les cgroups ?")
@@ -103,9 +83,11 @@ Allocated 1 MEBIBYTE, reaching a total of 19922944 bytes
 [ 4170.517367] cgroups invoked oom-killer: gfp_mask=0xcc0(GFP_KERNEL), order=0, oom_score_adj=0
 ...
 ```
-Nous nous serions attendu à avoir un pointeur null retourné mais c'est le OOM (Out Of Memory) killer du module des cgroups qui nous tue le processus.
+Nous nous serions attendu à avoir un pointeur null retourné. Hors, il se passe un crash du program, causé par le OOM (Out Of Memory) killer du module des cgroups qui nous tue le processus.
 
 #quote("Est-il possible de surveiller/vérifier l’état actuel de la mémoire ? Si oui, comment ?")
+
+Il est possible de connaitre la quantité de RAM utilisée par le cgroup en lisant l'attribut `/sys/fs/cgroup/memory/memory.usage_in_bytes`.
 
 /*
 Exercice #3: Afin de valider la capacité des groupes de contrôle de limiter l’utilisation des CPU, concevez une petite application composée au minimum de 2 processus utilisant le 100% des ressources du processeur.
@@ -136,6 +118,99 @@ echo 0 > /sys/fs/cgroup/cpuset/low/cpuset.mems
 //
 
 */
+
+=== Réponses aux questions
+
+#quote(
+  "Les 4 dernières lignes sont obligatoires pour que les prochaines commandes fonctionnent correctement. Pouvez-vous en donner la raison ?",
+)
+
+Les 4 dernières lignes configurent les deux sous cgroups créés par les deux `mkdir` précédent. Le premier groupe `high` ne peut tourner que sur le coeur 3, tandis que le second uniquement sur le 2. Le noeud mémoire 0 est attribué aux deux cgroups.
+
+#quote([
+  "Ouvrez deux shells distincts et placez une dans le cgroup high et l’autre dans le cgroup low, par exemple :
+  ```
+  # ssh root@192.168.53.14
+  $ echo $$ > /sys/fs/cgroup/cpuset/low/tasks
+  ```
+  Lancez ensuite votre application dans chacun des shells. Quel devrait être le bon comportement ? Pouvez-vous le vérifier ?",
+])
+Le comportement attendu devrait être que le terminal avec le shell dans le cgroup `high` devrait être limité au coeur 3 et l'autre shell devrait être limité au coeur 2. Pour le tester il suffit d'ouvrir `htop` dans une troisième session de terminal et de lancer le programme en deux temps pour voir l'usage du coeur en fonction du cgroup.
+```
+  0[                           0.0%]
+  1[                           0.0%]
+  2[|||||||||||||||||||||||||100.0%]
+  3[|||||||||||||||||||||||||100.0%]
+Mem[||||||||             35.9M/474M]
+Swp[                          0K/0K]
+```
+Le programme et les limites imposées par le cgroup fonctionne donc sans problème. Nous avons trouvé intéressant de noter qu'il est possible d'ajuster les coeurs à volée en impactant les programmes existants. Par exemple, `echo 0,2 > /sys/fs/cgroup/cpuset/low/cpuset.cpus` permettrait d'ajouter en plus le coeur 0 et `htop` nous montre que ce changement fonctionne immédiatement.
+
+#quote(
+  "Sachant que l’attribut cpu.shares permet de répartir le temps CPU entre différents cgroups, comment devrait-on procéder pour lancer deux tâches distinctes sur le cœur 4 de notre processeur et attribuer 75% du temps CPU à la première tâche et 25% à la deuxième ?",
+)
+
+L'attribut `cpu.shares` fonctionne comme les valeurs de l'attribut CSS `flex`. Quand on met une `div` à `flex:3` et une autre à `flex:4`, la première prendra 3/7 de l'espace et la seconde 4/7. Selon #link("https://www.redhat.com/en/blog/cgroups-part-two")[cette article de RedHat], `cpu.shares` est donc un nombre de portions de CPU divisant le total de portions définies. Cela donne un pourcentage final d'accès au CPU. Si le cgroup est un sous groupe, ce pourcentage s'applique sur le pourcentage calculé sur le parent.
+
+Nous avons de nouvelles contraintes, nous créons donc un nouveau cgroup nommé `shared`. Deux sous cgroups `minor` et `major` permettront de séparer les deux taches. Nous restreignons les tâches dans `shared` au coeur 3 (le 4ème). Ensuite, il suffit d'attribuer une portion de CPUShares de 1 pour `minor` et de 3 pour `major`, qui implémentera ce découpage 25%/75%.
+j
+```sh
+mkdir /sys/fs/cgroup/cpuset/shared
+mkdir /sys/fs/cgroup/cpuset/shared/minor
+mkdir /sys/fs/cgroup/cpuset/shared/major
+echo 3 > /sys/fs/cgroup/cpuset/shared/cpuset.cpus
+echo 1 > /sys/fs/cgroup/cpuset/shared/minor/cpu.shares
+echo 3 > /sys/fs/cgroup/cpuset/shared/major/cpu.shares
+```
+
+Finalement, il nous reste à changer de cgroup de nos 2 shells existants.
+```sh
+# terminal 1
+echo $$ > /sys/fs/cgroup/cpuset/shared/minor/tasks
+# terminal 2
+echo $$ > /sys/fs/cgroup/cpuset/shared/major/tasks
+```
+
+Après l'erreur suivante
+```
+# echo $$ > /sys/fs/cgroup/cpuset/shared/minor/tasks
+sh: write error: No space left on device
+```
+résolue en s'inspirant de l'example pour les 3 cgroups et de #link("https://stackoverflow.com/questions/28348627/echo-tasks-gives-no-space-left-on-device-when-trying-to-use-cpuset")[cette article SO]
+```
+echo 0 > /sys/fs/cgroup/cpuset/shared/cpuset.mems
+echo 0 > /sys/fs/cgroup/cpuset/shared/minor/cpuset.mems
+echo 0 > /sys/fs/cgroup/cpuset/shared/major/cpuset.mems
+echo 3 > /sys/fs/cgroup/cpuset/shared/minor/cpuset.cpus
+echo 3 > /sys/fs/cgroup/cpuset/shared/major/cpuset.cpus
+```
+
+On peut confirmer l'ajout à `tasks` coté terminal 1
+```sh
+# echo $$
+322
+# cat /sys/fs/cgroup/cpuset/shared/minor/tasks
+322
+```
+
+Et coté terminal 2.
+```
+# echo $$
+333
+# cat /sys/fs/cgroup/cpuset/shared/major/tasks
+333
+```
+
+En ne démarrant que le processus coté `high`, on obsverse dans `htop` les 2 processus (parent et enfant) qui prennent chacun 50%, donc 100% du coeur 3 au final. C'est normal de ne pas être limité à 75% quand il n'y a pas d'autres demandes.
+
+La validation est maintenant un peu plus complexe...
+```
+  PID USER       PRI  NI  VIRT   RES   SHR S  CPU%-MEM%   TIME+  Command
+ 5034 root        22   2 34888   184   144 S 100.0  0.0  4:18.49 ./build/cgroups
+ 5035 root        20   0 34888    84     0 S  50.0  0.0  4:18.03 ./build/cgroups
+ 5049 root        24   4 34888   188   148 S  50.0  0.0  0:50.90 ./build/cgroups
+ 5050 root        31  11 34888    88     0 S  50.0  0.0  0:51.32 ./build/cgroups
+```
 
 == Feedback cours
 A notre avis, le cours sur les cgroups manque certains détails qui aiderait à mieux comprendre leur fonctionnement. Après avoir lu la #link("https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html")[docs sur les cgroups], les informations suivantes nous semblent être utiles à inclure:
@@ -226,3 +301,6 @@ strace: Process 313238 attached
 ```
 Note: il ne faut pas inclure de `printf` dans le code des threads, ils semblent pour une raison étrange ne pas être limité par les coeurs définis.
 
+== Suggestions générales pour le cours
+- Mentionner si qu'on utilise cgroup v1 et pas la dernière v2. Nous avions d'abord trouvé #link("https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files")[dans la section de la documentation cgroup v2], l'attribut `memory.current` qui n'est pas le même que pour la version 1 `memory.current`.  Rajouter le lien vers la documentation liée.
+- Dans les exemples de commandes, s'il est possible de ne pas mettre de dollar au début d'une commande, cela aiderait à copier coller tout d'un coup. Exemple `$ mkdir /sys/fs/cgroup/cpuset` -> `mkdir /sys/fs/cgroup/cpuset`
