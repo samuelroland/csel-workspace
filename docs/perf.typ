@@ -125,5 +125,40 @@ sys	0m 0.28s
 
 === Analyse et optimisation d’un programme
 
+Le programme 2 va générer un grand tableau de nombre aléatoires entre 0 et 512 non compris. En parcourant ce tableau 10000 fois, il va faire la somme des valeurs si celles-ci sont supérieur ou égales à 256, ce qui devrait arriver en moyenne une fois sur deux.
+
+=== Mesure du temps d’exécution
+```
+# time ./ex2
+sum=125454290000
+real	0m 26.18s
+```
+
+=== Optimisation
+L'optimisation n'apporte bizarrement que 3s de gain...
+```
+# time ./ex2opti
+sum=125454290000
+real	0m 23.43s
+user	0m 23.37s
+sys	0m 0.00s
+```
+
+L'accélération est dûe au problème du _branch predictor_ qui ne peut pas prédire le coup suivant du branchement comme cela est alétoire. En triant les éléments du tableau, toutes les valeurs en dessous de 256 seront présentes sur la première moitié, puis toutes les valeurs supérieures. Cette analyse est confirmée par la mesure de `branch-misses` qui donne 33% de miss dans le programme de départ.
+```
+# perf stat ./ex2base
+sum=125454290000
+...
+         327858414      branch-misses             #   33.17% of all branches
+...
+
+# perf stat ./ex2opti
+sum=125454290000
+...
+            821593      branch-misses             #    0.08% of all branches
+...
+```
+
 == Retour généraux sur le cours
+- Un peu de difficulté avec qqes Makefile (exo 1 et 2 en tous cas) à cause de `cc1: error: bad value ‘cortex-a53’` et aussi parce qu'il compilait avec `cc` et pas `aarch64-linux-gcc` par défaut. Nous avons du chercher comment modifier les contraintes pour que la cross-compilation se fasse...
 - Par rapport à la version plus évolue de perf, installée au début du laboratoire: c'est vraiment bien d'avoir mis des commandes pour accélérer le travail, par contre nous aurions bien aimé savoir en quoi la version existante #quote("n’est pas totalement satisfaisante") ??
