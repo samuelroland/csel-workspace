@@ -139,12 +139,11 @@ echo 0 > /sys/fs/cgroup/cpuset/low/cpuset.mems
 
 == Feedback cours
 A notre avis, le cours sur les cgroups manque certains détails qui aiderait à mieux comprendre leur fonctionnement. Après avoir lu la #link("https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html")[docs sur les cgroups], les informations suivantes nous semblent être utiles à inclure:
-- #quote(
-    "No new system calls are added for cgroups - all support for querying and modifying cgroups is via this cgroup file system.",
-  )
+- #quote("No new system calls are added for cgroups - all support for querying and modifying cgroups is via this cgroup file system."). Je pense que ce détail est important et clarifie le besoin des 2 mounts. Par contre, il n'est pas clair de pourquoi sched_setaffinity et sched_getaffinity sont des appels systèmes ? Est-ce que la _Processor Affinity_ ne fait pas partie des cgroups ?
+- #quote("Each cgroup is represented by a directory in the cgroup file system containing the following files describing that cgroup:") -> pas évident de voir à quel niveau de la hiérarchie sont les cgroups.
 - #quote("tasks: list of tasks (by PID) attached to that cgroup. This list is not guaranteed to be sorted. Writing a thread ID into this file moves the thread into this cgroup.") Ceci contredit indirectement le cours qui dit #quote("Un CPU ou groupe de CPU peut être assigné à processus"), puisqu'il semble que ce ne sont pas les processus que l'on restreint à des coeurs mais bien des threads. Quand on restreint un processus, on restreint son thread principal.  Selon `man sched_setaffinity`, le paramètre `pid` est en fait surtout un thread ID. Quand on passe la valeur de `getpid()` ça fonctionne car le thread principal aura un TID égal au PID. Il est donc possible, dans un exemple avec des besoins de performances de définir qu'un thread a un CPU dédié que les autres threads ne pourront pas l'utiliser. Il est dommage que les pages du manuels aient utilisé le nom de variable `pid` au lieu de `tid`, peut-être que cette confusion pourrait être clarifiée par les explications et un par un petit exemple.
 
-Voici un exemple qui lance un thread sur le coeur 1 performant et
+Voici un exemple qui lance un thread sur le coeur 1 performant et 3 autres threads sur d'autres coeurs efficients.
 ```c
 #define _GNU_SOURCE
 #include <pthread.h>
@@ -225,3 +224,5 @@ strace: Process 313238 attached
 [pid 313238] sched_setaffinity(0, 128, [2 3]) = 0
 ...
 ```
+Note: il ne faut pas inclure de `printf` dans le code des threads, ils semblent pour une raison étrange ne pas être limité par les coeurs définis.
+
