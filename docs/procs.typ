@@ -89,36 +89,6 @@ Nous nous serions attendu à avoir un pointeur null retourné. Hors, il se passe
 
 Il est possible de connaitre la quantité de RAM utilisée par le cgroup en lisant l'attribut `/sys/fs/cgroup/memory/memory.usage_in_bytes`.
 
-/*
-Exercice #3: Afin de valider la capacité des groupes de contrôle de limiter l’utilisation des CPU, concevez une petite application composée au minimum de 2 processus utilisant le 100% des ressources du processeur.
-Quelques indications pour monter les CGroups :
-
-Si ce n’est pas déjà effectué, monter le cgroup de l’exercice précédent.
-```
-mkdir /sys/fs/cgroup/cpuset
-mount -t cgroup -o cpu,cpuset cpuset /sys/fs/cgroup/cpuset
-mkdir /sys/fs/cgroup/cpuset/high
-mkdir /sys/fs/cgroup/cpuset/low
-echo 3 > /sys/fs/cgroup/cpuset/high/cpuset.cpus
-echo 0 > /sys/fs/cgroup/cpuset/high/cpuset.mems
-echo 2 > /sys/fs/cgroup/cpuset/low/cpuset.cpus
-echo 0 > /sys/fs/cgroup/cpuset/low/cpuset.mems
-```
-
-// Quelques questions :
-//
-//     Les 4 dernières lignes sont obligatoires pour que les prochaines commandes fonctionnent correctement. Pouvez-vous en donner la raison ?
-//     Ouvrez deux shells distincts et placez une dans le cgroup high et l’autre dans le cgroup low, par exemple :
-//
-//     # ssh root@192.168.53.14
-//     $ echo $$ > /sys/fs/cgroup/cpuset/low/tasks
-//
-//     Lancez ensuite votre application dans chacun des shells. Quel devrait être le bon comportement ? Pouvez-vous le vérifier ?
-//     Sachant que l’attribut cpu.shares permet de répartir le temps CPU entre différents cgroups, comment devrait-on procéder pour lancer deux tâches distinctes sur le cœur 4 de notre processeur et attribuer 75% du temps CPU à la première tâche et 25% à la deuxième ?
-//
-
-*/
-
 === Réponses aux questions
 
 #quote(
@@ -152,15 +122,15 @@ Le programme et les limites imposées par le cgroup fonctionne donc sans problè
 
 L'attribut `cpu.shares` fonctionne comme les valeurs de l'attribut CSS `flex`. Quand on met une `div` à `flex:3` et une autre à `flex:4`, la première prendra 3/7 de l'espace et la seconde 4/7. Selon #link("https://www.redhat.com/en/blog/cgroups-part-two")[cette article de RedHat], `cpu.shares` est donc un nombre de portions de CPU divisant le total de portions définies. Cela donne un pourcentage final d'accès au CPU. Si le cgroup est un sous groupe, ce pourcentage s'applique sur le pourcentage calculé sur le parent.
 
-Nous avons de nouvelles contraintes, nous créons donc un nouveau cgroup nommé `shared`. Deux sous cgroups `minor` et `major` permettront de séparer les deux taches. Nous restreignons les tâches dans `shared` au coeur 3 (le 4ème). Ensuite, il suffit d'attribuer une portion de CPUShares de 1 pour `minor` et de 3 pour `major`, qui implémentera ce découpage 25%/75%.
+Nous avons de nouvelles contraintes, nous créons donc un nouveau cgroup nommé `shared`. Deux sous cgroups `minor` et `major` permettront de séparer les deux taches. Nous restreignons les tâches dans `shared` au coeur 3 (le 4ème). Ensuite, il suffit d'attribuer une portion de CPUShares de 256 pour `minor` et de 768 pour `major`, qui implémentera ce découpage 25%/75% de 1024 (valeur existante de `/sys/fs/cgroup/cpuset/shared/cpu.shares`).
 j
 ```sh
 mkdir /sys/fs/cgroup/cpuset/shared
 mkdir /sys/fs/cgroup/cpuset/shared/minor
 mkdir /sys/fs/cgroup/cpuset/shared/major
 echo 3 > /sys/fs/cgroup/cpuset/shared/cpuset.cpus
-echo 1 > /sys/fs/cgroup/cpuset/shared/minor/cpu.shares
-echo 3 > /sys/fs/cgroup/cpuset/shared/major/cpu.shares
+echo 768 > /sys/fs/cgroup/cpuset/shared/major/cpu.shares
+echo 256 > /sys/fs/cgroup/cpuset/shared/minor/cpu.shares
 ```
 
 Finalement, il nous reste à changer de cgroup de nos 2 shells existants.
@@ -203,13 +173,19 @@ Et coté terminal 2.
 
 En ne démarrant que le processus coté `high`, on obsverse dans `htop` les 2 processus (parent et enfant) qui prennent chacun 50%, donc 100% du coeur 3 au final. C'est normal de ne pas être limité à 75% quand il n'y a pas d'autres demandes.
 
-La validation est maintenant un peu plus complexe...
+Pour valider le résultat, il suffit de trier par CPU dans htop et voir que notre premiers process (parent + enfant) sont à $37*2 approx 75%$ et $12*2 approx 25%$. Nous avons donc bien réussi à séparer nos deux tâches aux ratios demandés.
 ```
-  PID USER       PRI  NI  VIRT   RES   SHR S  CPU%-MEM%   TIME+  Command
- 5034 root        22   2 34888   184   144 S 100.0  0.0  4:18.49 ./build/cgroups
- 5035 root        20   0 34888    84     0 S  50.0  0.0  4:18.03 ./build/cgroups
- 5049 root        24   4 34888   188   148 S  50.0  0.0  0:50.90 ./build/cgroups
- 5050 root        31  11 34888    88     0 S  50.0  0.0  0:51.32 ./build/cgroups
+ PID USER       PRI  NI  VIRT   RES   SHR S  CPU%-MEM%   TIME+  Command
+ 418 root        23   3 34888   188   148 S  37.6  0.0  5:28.38 ./build/cgroups
+ 419 root        22   2 34888    84     0 S  37.6  0.0  5:28.35 ./build/cgroups
+ 409 root        25   5 34888    88     0 S  12.5  0.0  3:27.16 ./build/cgroups
+ 408 root        22   2 34888   200   156 S  11.9  0.0  3:27.17 ./build/cgroups
+```
+
+Nous avions testé aussi de partager les CPUShares simplement en portion 1/4 et 3/4. Cela ne fonctionne malheureusement pas (le ratio est de 40%/60%), ce qui reste mystérieux pour nous, cela ne correspond pas à la compréhension des calculs donnée par l'article de RedHat...
+```
+echo 1 > /sys/fs/cgroup/cpuset/shared/minor/cpu.shares
+echo 3 > /sys/fs/cgroup/cpuset/shared/major/cpu.shares
 ```
 
 == Feedback cours
