@@ -4,20 +4,15 @@
 
 static int32_t array[SIZE][SIZE];
 
-int main (void)
-{
+int main(void) {
     int i, j, k;
 
-    for (k = 0; k < 10; k++)
-    {
-        for (i = 0; i < SIZE; i++)
-        {
-            for (j = 0; j < SIZE; j++)
-            {
-                array[j][i]++;
+    for (i = 0; i < SIZE; i++) {
+        for (j = 0; j < SIZE; j++) {
+            for (k = 0; k < 10; k++) {
+                array[i][j]++;
             }
         }
     }
     return 0;
 }
-
