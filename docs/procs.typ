@@ -1,4 +1,4 @@
-== Processus, signaux et communication
+= Processus, signaux et communication
 
 Le challenge de cette première partie a été surtout lié à l'usage de `read` et `write` sur un socketpair, en supportant les lectures partielles et arrêts causés par des interruptions.
 
@@ -38,7 +38,7 @@ parent: Waiting for messages from child
 parent: Got message: 'Hello 3'
 ```
 
-Les tests de support des signaux ont été fait avec une boucle for dans Fish, pour lancer en boucle les 5 signaux supportés.
+Les tests de support des signaux ont été fait en lançant les 5 signaux supportés à travers une boucle while Fish.
 ```fish
 while true; kill -1 procs; kill -2 procs; kill -3 procs; kill -6 procs; kill -15 procs; end
 ```
@@ -66,10 +66,10 @@ Une version safe de sleep n'a pas été intégrée comme elle existait déjà da
 Pas de difficulté particulière à écrire cet exemple, exception faite sur une légère confusion avec la consigne. Le texte #quote("Allouer un nombre défini de blocs de mémoire d’un mébibyte, par exemple 50") semble indiquer d'allouer 50 fois 1 mébibyte d'un seul coup, ce qui n'est pas très intéressant puisque la limite de 20MB est immédiatement dépassée. Nous avons donc alloué 1 mébibyte, 50 fois de suite en vérifiant entre chaque fois si l'allocation fonctionne.
 
 === Réponses aux questions
-#quote("Quel effet a la commande echo $$ > ... sur les cgroups ?")
+#rect("Quel effet a la commande echo $$ > ... sur les cgroups ?")
 La variable `$$` contient le PID du shell. En écrivant dans le fichier `/sys/fs/cgroup/memory/mem/tasks`, on va inclure le PID du shell dans la liste des processus incluses dans ce groupe de contrôle.
 
-#quote(
+#rect(
   "Quel est le comportement du sous-système memory lorsque le quota de mémoire est épuisé ? Pourrait-on le modifier ? Si oui, comment ?",
 )
 Notre programme alloue progressivement des blocs de 1 mébibyte, jusqu'à que l'allocation échoue. La limite étant précédemment définie à 20M, il est normal que le programme ne puissent pas allouer au delà de 19 fois un mébibyte.
@@ -85,19 +85,19 @@ Allocated 1 MEBIBYTE, reaching a total of 19922944 bytes
 ```
 Nous nous serions attendu à avoir un pointeur null retourné. Hors, il se passe un crash du program, causé par le OOM (Out Of Memory) killer du module des cgroups qui nous tue le processus.
 
-#quote("Est-il possible de surveiller/vérifier l’état actuel de la mémoire ? Si oui, comment ?")
+#rect("Est-il possible de surveiller/vérifier l’état actuel de la mémoire ? Si oui, comment ?")
 
 Il est possible de connaitre la quantité de RAM utilisée par le cgroup en lisant l'attribut `/sys/fs/cgroup/memory/memory.usage_in_bytes`.
 
 === Réponses aux questions
 
-#quote(
+#rect(
   "Les 4 dernières lignes sont obligatoires pour que les prochaines commandes fonctionnent correctement. Pouvez-vous en donner la raison ?",
 )
 
 Les 4 dernières lignes configurent les deux sous cgroups créés par les deux `mkdir` précédent. Le premier groupe `high` ne peut tourner que sur le coeur 3, tandis que le second uniquement sur le 2. Le noeud mémoire 0 est attribué aux deux cgroups.
 
-#quote([
+#rect([
   "Ouvrez deux shells distincts et placez une dans le cgroup high et l’autre dans le cgroup low, par exemple :
   ```
   # ssh root@192.168.53.14
@@ -116,7 +116,7 @@ Swp[                          0K/0K]
 ```
 Le programme et les limites imposées par le cgroup fonctionne donc sans problème. Nous avons trouvé intéressant de noter qu'il est possible d'ajuster les coeurs à volée en impactant les programmes existants. Par exemple, `echo 0,2 > /sys/fs/cgroup/cpuset/low/cpuset.cpus` permettrait d'ajouter en plus le coeur 0 et `htop` nous montre que ce changement fonctionne immédiatement.
 
-#quote(
+#rect(
   "Sachant que l’attribut cpu.shares permet de répartir le temps CPU entre différents cgroups, comment devrait-on procéder pour lancer deux tâches distinctes sur le cœur 4 de notre processeur et attribuer 75% du temps CPU à la première tâche et 25% à la deuxième ?",
 )
 
@@ -189,10 +189,14 @@ echo 3 > /sys/fs/cgroup/cpuset/shared/major/cpu.shares
 ```
 
 == Feedback cours
-A notre avis, le cours sur les cgroups manque certains détails qui aiderait à mieux comprendre leur fonctionnement. Après avoir lu la #link("https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html")[docs sur les cgroups], les informations suivantes nous semblent être utiles à inclure:
-- #quote("No new system calls are added for cgroups - all support for querying and modifying cgroups is via this cgroup file system."). Je pense que ce détail est important et clarifie le besoin des 2 mounts. Par contre, il n'est pas clair de pourquoi sched_setaffinity et sched_getaffinity sont des appels systèmes ? Est-ce que la _Processor Affinity_ ne fait pas partie des cgroups ?
-- #quote("Each cgroup is represented by a directory in the cgroup file system containing the following files describing that cgroup:") -> pas évident de voir à quel niveau de la hiérarchie sont les cgroups.
-- #quote("tasks: list of tasks (by PID) attached to that cgroup. This list is not guaranteed to be sorted. Writing a thread ID into this file moves the thread into this cgroup.") Ceci contredit indirectement le cours qui dit #quote("Un CPU ou groupe de CPU peut être assigné à processus"), puisqu'il semble que ce ne sont pas les processus que l'on restreint à des coeurs mais bien des threads. Quand on restreint un processus, on restreint son thread principal.  Selon `man sched_setaffinity`, le paramètre `pid` est en fait surtout un thread ID. Quand on passe la valeur de `getpid()` ça fonctionne car le thread principal aura un TID égal au PID. Il est donc possible, dans un exemple avec des besoins de performances de définir qu'un thread a un CPU dédié que les autres threads ne pourront pas l'utiliser. Il est dommage que les pages du manuels aient utilisé le nom de variable `pid` au lieu de `tid`, peut-être que cette confusion pourrait être clarifiée par les explications et un par un petit exemple.
+
+
+- Mentionner qu'on utilise cgroup v1 et pas la dernière v2. Nous avions d'abord trouvé #link("https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files")[dans la section de la documentation cgroup v2], l'attribut `memory.current` qui n'est pas le même que pour la version 1 `memory.usage_in_bytes`.  Rajouter le lien vers la documentation liée.
+- Dans les exemples de commandes, s'il est possible de ne pas mettre de dollar au début d'une commande, cela aiderait à copier coller tout d'un coup. Exemple `$ mkdir /sys/fs/cgroup/cpuset` -> `mkdir /sys/fs/cgroup/cpuset`
+- A notre avis, le cours sur les cgroups manque certains détails qui aiderait à mieux comprendre leur fonctionnement. Après avoir lu la #link("https://docs.kernel.org/admin-guide/cgroup-v1/cgroups.html")[docs sur les cgroups], les informations suivantes nous semblent être utiles à inclure:
+  - #quote("No new system calls are added for cgroups - all support for querying and modifying cgroups is via this cgroup file system."). Je pense que ce détail est important et clarifie le besoin des 2 mounts. Par contre, il n'est pas clair de pourquoi `sched_setaffinity` et `sched_getaffinity` sont des appels systèmes ? Est-ce que la _Processor Affinity_ ne fait pas partie des cgroups ?
+  - #quote("Each cgroup is represented by a directory in the cgroup file system containing the following files describing that cgroup:") -> pas évident de voir à quel niveau de la hiérarchie sont les cgroups.
+  - #quote("tasks: list of tasks (by PID) attached to that cgroup. This list is not guaranteed to be sorted. Writing a thread ID into this file moves the thread into this cgroup.") Ceci contredit indirectement le cours qui dit #quote("Un CPU ou groupe de CPU peut être assigné à processus"), puisqu'il semble que ce ne sont pas les processus que l'on restreint à des coeurs mais bien des threads. Quand on restreint un processus, on restreint son thread principal.  Selon `man sched_setaffinity`, le paramètre `pid` est en fait surtout un thread ID. Quand on passe la valeur de `getpid()` ça fonctionne car le thread principal aura un TID égal au PID. Il est donc possible, dans un exemple avec des besoins de performances de définir qu'un thread a un CPU dédié que les autres threads ne pourront pas l'utiliser. Il est dommage que les pages du manuels aient utilisé le nom de variable `pid` au lieu de `tid`, peut-être que cette confusion pourrait être clarifiée par les explications et un par un petit exemple.
 
 Voici un exemple qui lance un thread sur le coeur 1 performant et 3 autres threads sur d'autres coeurs efficients.
 ```c
@@ -261,6 +265,7 @@ int main(void) {
 }
 ```
 
+Note: pour que l'exemple précédent fonctionne, il ne faut pas inclure de `printf` dans le code des threads, car pour une raison étrange, leur exécution n'est pas limitée par les coeurs définis.
 L'appel système confirme la sélection des coeurs. Le TID zéro correspond au thread appelant.
 ```sh
 > strace -f -e trace=sched_setaffinity ./build/main
@@ -275,8 +280,3 @@ strace: Process 313238 attached
 [pid 313238] sched_setaffinity(0, 128, [2 3]) = 0
 ...
 ```
-Note: il ne faut pas inclure de `printf` dans le code des threads, ils semblent pour une raison étrange ne pas être limité par les coeurs définis.
-
-== Suggestions générales pour le cours
-- Mentionner si qu'on utilise cgroup v1 et pas la dernière v2. Nous avions d'abord trouvé #link("https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files")[dans la section de la documentation cgroup v2], l'attribut `memory.current` qui n'est pas le même que pour la version 1 `memory.current`.  Rajouter le lien vers la documentation liée.
-- Dans les exemples de commandes, s'il est possible de ne pas mettre de dollar au début d'une commande, cela aiderait à copier coller tout d'un coup. Exemple `$ mkdir /sys/fs/cgroup/cpuset` -> `mkdir /sys/fs/cgroup/cpuset`

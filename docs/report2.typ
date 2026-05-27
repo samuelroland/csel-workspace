@@ -43,5 +43,5 @@ Notre fork du repository buildroot est disponible sur #link("https://github.com/
 #pagebreak()
 #include "./perf.typ"
 
-== Conclusion
+= Conclusion
 TODO

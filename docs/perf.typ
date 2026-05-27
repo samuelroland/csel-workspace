@@ -1,9 +1,9 @@
-== Perf
-==== Validation de l’installation
+= Perf
+=== Validation de l’installation
 Il n'est pas clair de comment valider que l'installation fonctionnne à part de voir que `perf list` nous donne les mêmes événements, mais cela semblait être déjà le cas avant la modification.
 
-==== Compilation d’un exemple et utilisation de perf
-#quote(
+=== Compilation d’un exemple et utilisation de perf
+#rect(
   "Sans options spécifiques, la commande mesure par défaut un certain nombre de compteurs. Relevez par exemple les compteurs du nombre de context-switches et d’instructions ainsi que le temps d’exécution.",
 )
 ```sh
@@ -22,7 +22,7 @@ Makefile  ex1  main.c
              47003      branch-misses             #   11.86% of all branches
 ```
 
-#quote(
+#rect(
   "Ce programme contient une erreur triviale qui empêche une utilisation optimale du cache. De quelle erreur s’agit-il ?",
 )
 
@@ -34,9 +34,9 @@ Notre commande prend ainsi 38secondes.
 real	0m 38.78s
 ```
 
-==== Correction de bug
+=== Correction de bug
 
-#quote(
+#rect(
   "Corrigez l’erreur, recompilez et mesurez à nouveau le temps d’exécution (soit avec perf stat, soit avec la commande time). Quelle amélioration constatez-vous ?",
 )
 
@@ -52,9 +52,9 @@ En passant la boucle de 10 tour dans les 2 autres boucles, on gagne effectivemen
 real	0m 1.35s
 ```
 
-==== Validation
+=== Validation
 
-#quote([
+#rect([
   Relevez les valeurs du compteur L1-dcache-load-misses pour les deux versions de l’application. Quel facteur constatez-vous entre les deux valeurs ?
   ```
   # perf stat -e L1-dcache-load-misses ./ex1
@@ -85,8 +85,8 @@ real	0m 1.35s
 ```
 Le ratio est de 795585/406599107 est moins de 1 pour mille.
 
-==== Analyse des évènements capturables
-#quote("Décrivez brièvement ce que sont les évènements suivants :")
+=== Analyse des évènements capturables
+#rect("Décrivez brièvement ce que sont les évènements suivants :")
 
 + instructions: le nombre d'instructions exécutée par le processeur sur le programme
 + cache-misses: le nombre de fois qu'un accès RAM n'a pas trouvé de ligne de cache contenant déjà la valeur et que la ligne de cache de l'emplacement a été chargé.
@@ -95,9 +95,9 @@ Le ratio est de 795585/406599107 est moins de 1 pour mille.
 + cpu-migrations: la doc de `perf list` nous indique que cette valeur est le nomber de fois que le processus a changé de CPU
 + context-switches: le nombre de changement de contexte (le moment où l'ordonnanceur a décidé de stopper le processus, sauver son état d'exécution en mémoire et le restaurer plus tard sur le même ou un autre coeur).
 
-==== Mesure de l’impact sur la performance
+=== Mesure de l’impact sur la performance
 
-#quote(
+#rect(
   "Lors de la présentation de l’outil perf, on a vu que celui-ci permettait de profiler une application avec très peu d’impacts sur les performances. En utilisant la commande time, mesurez le temps d’exécution de notre application ex1 avec et sans la commande perf stat.",
 )
 
@@ -123,7 +123,7 @@ user	0m 1.10s
 sys	0m 0.28s
 ```
 
-=== Analyse et optimisation d’un programme
+== Analyse et optimisation d’un programme
 
 Le programme 2 va générer un grand tableau de nombre aléatoires entre 0 et 512 non compris. En parcourant ce tableau 10000 fois, il va faire la somme des valeurs si celles-ci sont supérieur ou égales à 256, ce qui devrait arriver en moyenne une fois sur deux.
 
@@ -158,8 +158,8 @@ sum=125454290000
             821593      branch-misses             #    0.08% of all branches
 ...
 ```
-
-Dans `perf report`, en pressant Enter sur la fonction, on a une option `Expand [std::operator==<char>] callchain` qui nous donne la liste des appels de fonctions. Cela semble chercher dans un vecteur de char via la fonction `std::find`.
+== Parsing de logs apache
+Dans le programme 3, dans `perf report`, en pressant Enter sur la fonction, on a une option `Expand [std::operator==<char>] callchain` qui nous donne la liste des appels de fonctions. Cela semble chercher dans un vecteur de char via la fonction `std::find`.
 ```
   std::operator==<char>
      __gnu_cxx::__ops::_Iter_equals_val<std...
@@ -235,9 +235,9 @@ user	0m 0.83s
 sys	0m 0.08s
 ```
 
-==== Mesure de la latence et de la gigue (jitter)
+== Mesure de la latence et de la gigue (jitter)
 
-#quote(
+#rect(
   "Décrivez comment devrait-on procéder pour mesurer la latence et la gigue d’interruption, ceci aussi bien au niveau du noyau (kernel space) que de l’application (user space).",
 )
 
