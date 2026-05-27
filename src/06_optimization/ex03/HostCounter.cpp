@@ -12,9 +12,7 @@ bool HostCounter::isNewHost(std::string hostname)
 void HostCounter::notifyHost(std::string hostname)
 {
     // add the host in the list if not already in
-    if (isNewHost(hostname)) {
-        myHosts.insert(hostname);
-    }
+    myHosts.insert(hostname);
 }
 
 int HostCounter::getNbOfHosts() { return myHosts.size(); }
