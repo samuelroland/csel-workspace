@@ -1,5 +1,6 @@
 #set page(margin: 1.5cm)
 #show link: text.with(fill: blue)
+#set par(justify: true)
 
 // Display inline code in a small box with light gray backround that retains the correct baseline.
 #show raw.where(block: false): box.with(

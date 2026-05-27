@@ -146,7 +146,7 @@ Après l'erreur suivante
 # echo $$ > /sys/fs/cgroup/cpuset/shared/minor/tasks
 sh: write error: No space left on device
 ```
-résolue en s'inspirant de l'example pour les 3 cgroups et de #link("https://stackoverflow.com/questions/28348627/echo-tasks-gives-no-space-left-on-device-when-trying-to-use-cpuset")[cette article SO]
+résolue en s'inspirant de l'example pour les 3 cgroups et de #link("https://stackoverflow.com/questions/28348627/echo-tasks-gives-no-space-left-on-device-when-trying-to-use-cpuset")[cette article SO].
 ```
 echo 0 > /sys/fs/cgroup/cpuset/shared/cpuset.mems
 echo 0 > /sys/fs/cgroup/cpuset/shared/minor/cpuset.mems
@@ -155,23 +155,7 @@ echo 3 > /sys/fs/cgroup/cpuset/shared/minor/cpuset.cpus
 echo 3 > /sys/fs/cgroup/cpuset/shared/major/cpuset.cpus
 ```
 
-On peut confirmer l'ajout à `tasks` coté terminal 1
-```sh
-# echo $$
-322
-# cat /sys/fs/cgroup/cpuset/shared/minor/tasks
-322
-```
-
-Et coté terminal 2.
-```
-# echo $$
-333
-# cat /sys/fs/cgroup/cpuset/shared/major/tasks
-333
-```
-
-En ne démarrant que le processus coté `high`, on obsverse dans `htop` les 2 processus (parent et enfant) qui prennent chacun 50%, donc 100% du coeur 3 au final. C'est normal de ne pas être limité à 75% quand il n'y a pas d'autres demandes.
+En ne démarrant que le processus côté `high`, on observe dans `htop` les 2 processus (parent et enfant) qui prennent chacun 50%, donc 100% du coeur 3 au final. C'est normal de ne pas être limité à 75% quand il n'y a pas d'autres demandes.
 
 Pour valider le résultat, il suffit de trier par CPU dans htop et voir que notre premiers process (parent + enfant) sont à $37*2 approx 75%$ et $12*2 approx 25%$. Nous avons donc bien réussi à séparer nos deux tâches aux ratios demandés.
 ```
@@ -188,8 +172,7 @@ echo 1 > /sys/fs/cgroup/cpuset/shared/minor/cpu.shares
 echo 3 > /sys/fs/cgroup/cpuset/shared/major/cpu.shares
 ```
 
-== Feedback cours
-
+== Feedback du cours
 
 - Mentionner qu'on utilise cgroup v1 et pas la dernière v2. Nous avions d'abord trouvé #link("https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files")[dans la section de la documentation cgroup v2], l'attribut `memory.current` qui n'est pas le même que pour la version 1 `memory.usage_in_bytes`.  Rajouter le lien vers la documentation liée.
 - Dans les exemples de commandes, s'il est possible de ne pas mettre de dollar au début d'une commande, cela aiderait à copier coller tout d'un coup. Exemple `$ mkdir /sys/fs/cgroup/cpuset` -> `mkdir /sys/fs/cgroup/cpuset`
@@ -198,85 +181,97 @@ echo 3 > /sys/fs/cgroup/cpuset/shared/major/cpu.shares
   - #quote("Each cgroup is represented by a directory in the cgroup file system containing the following files describing that cgroup:") -> pas évident de voir à quel niveau de la hiérarchie sont les cgroups.
   - #quote("tasks: list of tasks (by PID) attached to that cgroup. This list is not guaranteed to be sorted. Writing a thread ID into this file moves the thread into this cgroup.") Ceci contredit indirectement le cours qui dit #quote("Un CPU ou groupe de CPU peut être assigné à processus"), puisqu'il semble que ce ne sont pas les processus que l'on restreint à des coeurs mais bien des threads. Quand on restreint un processus, on restreint son thread principal.  Selon `man sched_setaffinity`, le paramètre `pid` est en fait surtout un thread ID. Quand on passe la valeur de `getpid()` ça fonctionne car le thread principal aura un TID égal au PID. Il est donc possible, dans un exemple avec des besoins de performances de définir qu'un thread a un CPU dédié que les autres threads ne pourront pas l'utiliser. Il est dommage que les pages du manuels aient utilisé le nom de variable `pid` au lieu de `tid`, peut-être que cette confusion pourrait être clarifiée par les explications et un par un petit exemple.
 
-Voici un exemple qui lance un thread sur le coeur 1 performant et 3 autres threads sur d'autres coeurs efficients.
-```c
-#define _GNU_SOURCE
-#include <pthread.h>
-#include <sched.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+#pagebreak()
+Voici un exemple de code qui lance un thread sur le coeur 1 performant et 3 autres threads sur d'autres coeurs efficients.
+#table(
+  columns: 2,
+  [
 
-void do_heavy_work() {
-    volatile size_t counter = 0;
-    while (1) {
-        counter ^= (counter << 13);
-        counter ^= (counter >> 7);
-        counter ^= (counter << 17);
+
+    ```c
+    #define _GNU_SOURCE
+    #include <pthread.h>
+    #include <sched.h>
+    #include <stdbool.h>
+    #include <stddef.h>
+    #include <stdint.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <unistd.h>
+
+    void do_heavy_work() {
+        volatile size_t counter = 0;
+        while (1) {
+            counter ^= (counter << 13);
+            counter ^= (counter >> 7);
+            counter ^= (counter << 17);
+        }
     }
-}
 
-void do_lighweight_work() {
-    volatile size_t counter = 0;
-    while (true) {
-        usleep(10000);
-        counter ^= (counter << 17);
+    void do_lighweight_work() {
+        volatile size_t counter = 0;
+        while (true) {
+            usleep(10000);
+            counter ^= (counter << 17);
+        }
     }
-}
 
-void *performant_task(void *arg) {
-    cpu_set_t set;
-    CPU_ZERO(&set);
-    CPU_SET(1, &set);// CPU 1 is a performant core
-    if (sched_setaffinity(0, sizeof(set), &set) < 0) {
-        perror("sched_setaffinity");
-        exit(1);
+    void *performant_task(void *arg) {
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        CPU_SET(1, &set);// CPU 1 is a performant core
+        if (sched_setaffinity(0, sizeof(set), &set) < 0) {
+            perror("sched_setaffinity");
+            exit(1);
+        }
+        do_heavy_work();
+        return NULL;
     }
-    do_heavy_work();
-    return NULL;
-}
 
-void *light_task(void *arg) {
-    cpu_set_t set;
-    CPU_ZERO(&set);
-    CPU_SET(2, &set);// CPU 2 and 3 are efficient cores
-    CPU_SET(3, &set);
-    if (sched_setaffinity(0, sizeof(set), &set) < 0) {
-        perror("sched_setaffinity");
-        exit(1);
+    void *light_task(void *arg) {
+        cpu_set_t set;
+        CPU_ZERO(&set);
+        CPU_SET(2, &set);// CPU 2 and 3 are efficient cores
+        CPU_SET(3, &set);
+        if (sched_setaffinity(0, sizeof(set), &set) < 0) {
+            perror("sched_setaffinity");
+            exit(1);
+        }
+        do_lighweight_work();
+        return NULL;
     }
-    do_lighweight_work();
-    return NULL;
-}
 
-int main(void) {
-    pthread_t t1, t2, t3, t4;
-    pthread_create(&t1, NULL, performant_task, NULL);
-    pthread_create(&t2, NULL, light_task, NULL);
-    pthread_create(&t3, NULL, light_task, NULL);
-    pthread_create(&t4, NULL, light_task, NULL);
-    pthread_join(t1, NULL);
-    pthread_join(t2, NULL);
-    pthread_join(t3, NULL);
-    pthread_join(t4, NULL);
-}
-```
+    int main(void) {
+        pthread_t t1, t2, t3, t4;
+        pthread_create(&t1, NULL, performant_task, NULL);
+        pthread_create(&t2, NULL, light_task, NULL);
+        pthread_create(&t3, NULL, light_task, NULL);
+        pthread_create(&t4, NULL, light_task, NULL);
+        pthread_join(t1, NULL);
+        pthread_join(t2, NULL);
+        pthread_join(t3, NULL);
+        pthread_join(t4, NULL);
+    }
+    ```
 
-Note: pour que l'exemple précédent fonctionne, il ne faut pas inclure de `printf` dans le code des threads, car pour une raison étrange, leur exécution n'est pas limitée par les coeurs définis.
-L'appel système confirme la sélection des coeurs. Le TID zéro correspond au thread appelant.
-```sh
-> strace -f -e trace=sched_setaffinity ./build/main
-strace: Process 313235 attached
-[pid 313235] sched_setaffinity(0, 128, [1]) = 0
-strace: Process 313236 attached
-[pid 313236] sched_setaffinity(0, 128, [2 3]) = 0
-strace: Process 313237 attached
-do_heavy_work
-[pid 313237] sched_setaffinity(0, 128, [2 3]) = 0
-strace: Process 313238 attached
-[pid 313238] sched_setaffinity(0, 128, [2 3]) = 0
-...
-```
+  ],
+  [
+
+    Note: pour que l'exemple à gauche fonctionne, il ne faut pas inclure de `printf` dans le code des threads, car pour une raison étrange, leur exécution n'est pas limitée par les coeurs définis.
+
+    L'appel système confirme la sélection des coeurs. Le TID zéro correspond au thread appelant.
+    ```sh
+    > strace -f -e trace=sched_setaffinity ./build/main
+    strace: Process 313235 attached
+    [pid 313235] sched_setaffinity(0, 128, [1]) = 0
+    strace: Process 313236 attached
+    [pid 313236] sched_setaffinity(0, 128, [2 3]) = 0
+    strace: Process 313237 attached
+    do_heavy_work
+    [pid 313237] sched_setaffinity(0, 128, [2 3]) = 0
+    strace: Process 313238 attached
+    [pid 313238] sched_setaffinity(0, 128, [2 3]) = 0
+    ...
+    ```
+  ],
+)
