@@ -1,7 +1,7 @@
 == Perf
-=== Prise en main de perf
 ==== Validation de l’installation
-TODO
+Il n'est pas clair de comment valider que l'installation fonctionnne à part de voir que `perf list` nous donne les mêmes événements, mais cela semblait être déjà le cas avant la modification.
+
 ==== Compilation d’un exemple et utilisation de perf
 #quote(
   "Sans options spécifiques, la commande mesure par défaut un certain nombre de compteurs. Relevez par exemple les compteurs du nombre de context-switches et d’instructions ainsi que le temps d’exécution.",
