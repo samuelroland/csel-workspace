@@ -44,4 +44,4 @@ Notre fork du repository buildroot est disponible sur #link("https://github.com/
 #include "./perf.typ"
 
 = Conclusion
-TODO
+Etant fan des modes watch, comprendre plus en détails comment implémenter l'écoute d'événements via `epoll` et voir `inotify` a été intéressant pour Samuel. Pour la partie sur les signaux, la gestion des lectures/écritures qui doivent supporter leur arrêt causé par des interruptions étaient également nouveaux pour Samuel. La gestion des cgroups n'est pas toujours évidente, mais avec l'aide de différents morceaux de la documentation officielle et quelques articles, le sujet est devenu beaucoup accessible et intéressant à explorer en pratique. HTOP s'est avéré d'une grande aide pour comprendre l'effet des cgroups pour les restrictions de CPU. Nous avions déjà vu Perf et d'autres outils de performance durant un cours de HPC en bachelor, la majorité des notions de perf étaient connues mais nous avons découvert quelques options de la TUI `perf report`.

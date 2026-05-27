@@ -89,7 +89,7 @@ Nous nous serions attendu à avoir un pointeur null retourné. Hors, il se passe
 
 Il est possible de connaitre la quantité de RAM utilisée par le cgroup en lisant l'attribut `/sys/fs/cgroup/memory/memory.usage_in_bytes`.
 
-=== Réponses aux questions
+=== Réponses aux questions 2
 
 #rect(
   "Les 4 dernières lignes sont obligatoires pour que les prochaines commandes fonctionnent correctement. Pouvez-vous en donner la raison ?",

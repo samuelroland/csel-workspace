@@ -183,3 +183,6 @@ Jan  1 00:17:53 csel daemon.debug not_silly_led_control[280]: Led Off
 On peut y observer clairement la séparation entre les événements de type `daemon.info` (changements de fréquence) et `daemon.debug` (toggles de LED), ainsi que le PID du processus.
 
 #line()
+
+== Feedback
+Il est vrai que nous avons parcouru un peu trop vite la consigne avant de s'atteler à la tâche et nous voulions faire les choses l'une après l'autre, c'est pourquoi nous avions loupés une partie des Infos pratiques données. Nous suggérons de déplacer le partie "Infos pratiques" avant "Travail à réaliser" pour l'avoir lue au moins une fois avant de commencer à coder et éviter de croire que cela concerne un autre exercice.
