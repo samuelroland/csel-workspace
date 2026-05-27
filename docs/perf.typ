@@ -159,6 +159,93 @@ sum=125454290000
 ...
 ```
 
+Dans `perf report`, en pressant Enter sur la fonction, on a une option `Expand [std::operator==<char>] callchain` qui nous donne la liste des appels de fonctions. Cela semble chercher dans un vecteur de char via la fonction `std::find`.
+```
+  std::operator==<char>
+     __gnu_cxx::__ops::_Iter_equals_val<std...
+     std::__find_if<__gnu_cxx::__normal_ite...
+     std::__find_if<__gnu_cxx::__normal_ite...
+     std::find<__gnu_cxx::__normal_iterator...
+     HostCounter::isNewHost
+     HostCounter::notifyHost
+     ApacheAccessLogAnalyzer::processFile
+...
+```
+
+Le but du code est en fait de chercher une string parmi un vecteur de strings. Le gros problème est la recherche dans un vecteur est en $O(N)$.
+```cpp
+std::vector< std::string > myHosts;
+...
+return std::find(myHosts.begin(), myHosts.end(), hostname) == myHosts.end();
+...
+```
+
+Grace aux changements donnés, on obtient de bien meilleur résultat qu'auparavant.
+```
+# time ./read-apache-logs access_log_NASA_Jul95_samples
+Processing log file access_log_NASA_Jul95_samples
+Found 14867 unique Hosts/IPs
+Command terminated by signal 11
+real	0m 1.59s
+user	0m 1.37s
+sys	0m 0.09s
+```
+
+Il est possible et facile d'utiliser une structure encore meilleur. Un `std::set` garantit un accès en $O(log(N))$ alors qu'une table de hachage pour stocker un ensemble garantit un $O(1)$ amorti. Il suffit donc de changer `std::set` par `std::unordered_set` pour gagner encore quelques 500ms.
+```cpp
+std::unordered_set<std::string> myHosts;
+```
+
+```
+# time ./read-apache-logs access_log_NASA_Jul95_samples
+Processing log file access_log_NASA_Jul95_samples
+Found 14867 unique Hosts/IPs
+Command terminated by signal 11
+real	0m 1.09s
+user	0m 0.89s
+sys	0m 0.09s
+```
+
+Dans l'état actuelle, si on réanalyze via `perf record` et `perf report`, on trouve la fonction probablement appelée pour le calcul du hash au moment du `myHosts.find()`.
+```
+  Overhead  Command          Shared Object          Symbol
++   10.53%  read-apache-log  read-apache-logs       [.] std::_Hashtable<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::__cxx11::basic
++    7.89%  read-apache-log  libstdc++.so.6.0.29    [.] std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >::find_first_of
++    3.95%  read-apache-log  [kernel.kallsyms]      [k] __arch_copy_to_user
+```
+
+Si on y regarde de plus près, on se rend compte que isNewHost va chercher dans la table de hachage pour savoir si on veut insérer ou non l'entrée. Contrairement au vector initiale, nous avons maintenant un ensemble de clés unique et l'insertion ne se fait pas/n'a pas d'impacte si l'entrée existe déjà. Si l'entrée existe, le hash de la string est donc calculé deux fois (une fois pour la trouver, une autre fois pour savoir où l'insérer).
+
+```cpp
+    // add the host in the list if not already in
+    if (isNewHost(hostname)) {
+        myHosts.insert(hostname);
+    }
+```
+
+En retirant ce if, on retire l'overhead de `10%` montré précédemment et on gagne encore 60ms, pour obtenir 1.03s. Le gain n'est pas énorme car il est proportionnel au nombre d'entrée unique trouvée qui reste limité à 14867.
+
+```
+# time ./read-apache-logs access_log_NASA_Jul95_samples
+Processing log file access_log_NASA_Jul95_samples
+Found 14867 unique Hosts/IPs
+Command terminated by signal 11
+real	0m 1.03s
+user	0m 0.83s
+sys	0m 0.08s
+```
+
+==== Mesure de la latence et de la gigue (jitter)
+
+#quote(
+  "Décrivez comment devrait-on procéder pour mesurer la latence et la gigue d’interruption, ceci aussi bien au niveau du noyau (kernel space) que de l’application (user space).",
+)
+
+Vous expliquiez en classe qu'il était possible de lever une patte de gpio et de mesurer à l'oscilloscope le délai entre un événement physique et sa réaction. L'accès au GPIO peut se faire depuis un module noyau comme durant les précédents laboratoires. Il peut également se faire en mappant le registre du gpio vers une zone mémoire via `mmap`, donnant accès à à l'interaction depuis l'espace utilisateur.
+
+TODO: c'est quoi la gigue déjà ?? y répondre ou compléter...
+
 == Retour généraux sur le cours
 - Un peu de difficulté avec qqes Makefile (exo 1 et 2 en tous cas) à cause de `cc1: error: bad value ‘cortex-a53’` et aussi parce qu'il compilait avec `cc` et pas `aarch64-linux-gcc` par défaut. Nous avons du chercher comment modifier les contraintes pour que la cross-compilation se fasse...
 - Par rapport à la version plus évolue de perf, installée au début du laboratoire: c'est vraiment bien d'avoir mis des commandes pour accélérer le travail, par contre nous aurions bien aimé savoir en quoi la version existante #quote("n’est pas totalement satisfaisante") ??
+
