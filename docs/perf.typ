@@ -212,11 +212,15 @@ sys	0m 0.08s
   "Décrivez comment devrait-on procéder pour mesurer la latence et la gigue d’interruption, ceci aussi bien au niveau du noyau (kernel space) que de l’application (user space).",
 )
 
-Vous expliquiez en classe qu'il était possible de lever une patte de gpio et de mesurer à l'oscilloscope le délai entre un événement physique et sa réaction. L'accès au GPIO peut se faire depuis un module noyau comme durant les précédents laboratoires. Il peut également se faire en mappant le registre du gpio vers une zone mémoire via `mmap`, donnant accès à à l'interaction depuis l'espace utilisateur.
+Vous expliquiez en classe qu'il était possible de lever une patte de gpio et de mesurer à l'oscilloscope le délai entre un événement physique et sa réaction.
+L'accès au GPIO peut se faire directement depuis le noyau ou bien à travers quelques différentes méthodes depuis l'user space comme vu durant les précédents laboratoires, comme à 
+travers `/dev/mem` ou bien `sysfs`.
 
-TODO: c'est quoi la gigue déjà ?? y répondre ou compléter...
+On peut donc mesurer la latence en togglant un GPIO au début et en fin de tâche.
+Une fois plusieurs mesures prises on peut faire une moyenne et calculer le jitter, la différence du temps d'exécution entre plusieurs exécutions de la même tâche.
 
 == Retour généraux sur le cours
+
 - Un peu de difficulté avec quelques Makefile (exo 1 et 2 en tous cas) à cause de `cc1: error: bad value ‘cortex-a53’` et aussi parce qu'il compilait avec `cc` et pas `aarch64-linux-gcc` par défaut. Nous avons du chercher comment modifier les contraintes pour que la cross-compilation se fasse...
 - Par rapport à la version plus évolue de perf, installée au début du laboratoire: c'est vraiment bien d'avoir mis des commandes pour accélérer le travail, par contre nous aurions bien aimé savoir en quoi la version existante #quote("n’est pas totalement satisfaisante"), pour pouvoir valider que la mise à jour a réussi. Nous avons eu quelques doutes sur cette mise en place quand vous avez marqué #quote("Vous observez sans doute une nette amélioration sur le temps d’exécution.") et que notre optimisation n'apporte que 3 secondes de gain sur le total de 26 secondes...
 
