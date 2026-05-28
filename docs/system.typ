@@ -54,6 +54,8 @@ for (size_t i = 0; i < (size_t)err; ++i) {
 }
 ```
 
+#pagebreak()
+
 === Toggle de la LED et réarmement du timer
 
 Le `timerfd` est configuré en mode one-shot (pas d'intervalle automatique). Après chaque expiration, il faut le réarmer manuellement avec la période courante. Ceci permet de prendre en compte un changement de fréquence effectué par un bouton entre deux expirations:
