@@ -41,3 +41,6 @@ boot-scripts/boot.net
 **.cache
 
 **.pdf
+src/07_miniproj/kernel/cpu_fan_ctrl.ko
+src/07_miniproj/kernel/cpu_fan_ctrl.mod
+src/07_miniproj/kernel/cpu_fan_ctrl.mod.c
