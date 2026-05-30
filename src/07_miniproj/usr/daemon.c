@@ -9,6 +9,7 @@
 #define DEVICE_PATH "/sys/bus/platform/devices/cpu-fan-ctrl"
 #define MODE_PATH DEVICE_PATH "/mode"
 #define FREQUENCY_PATH DEVICE_PATH "/frequency"
+#define TEMPERATURE_PATH DEVICE_PATH "/temperature"
 
 static int write_int(int fd, int value);
 static int read_int(int fd, int* value);
@@ -39,6 +40,13 @@ int daemon_init(daemon_t* daemon)
     }
     daemon->freq_fd = err;
 
+    err = open(TEMPERATURE_PATH, O_RDONLY);
+    if (err < 0) {
+        perror("open " TEMPERATURE_PATH);
+        goto freq_open_err;
+    }
+    daemon->temp_fd = err;
+
     err = daemon_io_init(daemon);
     if (err) {
         goto daemon_io_err;
@@ -48,8 +56,15 @@ int daemon_init(daemon_t* daemon)
         goto daemon_ipc_err;
     }
 
+    err = daemon_screen_init(daemon);
+    if (err) {
+        goto daemon_screen_err;
+    }
+
     return err;
 
+daemon_screen_err:
+    daemon_ipc_deinit(&daemon->ipc);
 daemon_ipc_err:
     daemon_io_deinit(&daemon->io);
 daemon_io_err:
@@ -63,10 +78,13 @@ mode_open_err:
         close(daemon->mode_fd);
         daemon->mode_fd = 0;
     }
-
     if (daemon->epfd > 0) {
         close(daemon->epfd);
         daemon->epfd = 0;
+    }
+    if (daemon->temp_fd > 0) {
+        close(daemon->temp_fd);
+        daemon->temp_fd = 0;
     }
     return err;
 }
@@ -103,6 +121,7 @@ int daemon_run(daemon_t* daemon)
 }
 void daemon_deinit(daemon_t* daemon)
 {
+    daemon_screen_deinit(&daemon->screen);
     daemon_ipc_deinit(&daemon->ipc);
     daemon_io_deinit(&daemon->io);
     free(daemon->events);
@@ -119,6 +138,10 @@ void daemon_deinit(daemon_t* daemon)
     if (daemon->freq_fd > 0) {
         close(daemon->freq_fd);
         daemon->freq_fd = 0;
+    }
+    if (daemon->temp_fd > 0) {
+        close(daemon->temp_fd);
+        daemon->temp_fd = 0;
     }
 }
 
@@ -175,6 +198,10 @@ int daemon_get_frequency(daemon_t* daemon, int* frequency)
     return read_int(daemon->freq_fd, frequency);
 }
 
+int daemon_get_temperature(daemon_t* daemon, int* frequency)
+{
+    return read_int(daemon->temp_fd, frequency);
+}
 int daemon_increase_frequency(daemon_t* daemon, int* new_freq)
 {
     int freq;

@@ -48,6 +48,7 @@ typedef struct daemon {
     int epfd;
     int mode_fd;
     int freq_fd;
+    int temp_fd;
     daemon_event_ctx_t* events;
     size_t event_count;
     size_t event_capacity;
@@ -71,6 +72,7 @@ int daemon_get_mode(daemon_t* daemon, int* mode);
 int daemon_set_mode(daemon_t* daemon, int mode);
 int daemon_set_frequency(daemon_t* daemon, int frequency);
 int daemon_get_frequency(daemon_t* daemon, int* frequency);
+int daemon_get_temperature(daemon_t* daemon, int* temperature);
 
 int daemon_add_event(daemon_t* daemon, daemon_event_ctx_t ctx);
 void daemon_remove_event(daemon_t* daemon, int fd);
