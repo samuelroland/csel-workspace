@@ -3,7 +3,11 @@
 int main(void)
 {
     daemon_t daemon;
-    daemon_init(&daemon);
-    daemon_run(&daemon);
+    int err = daemon_init(&daemon);
+    if (err) {
+        return err;
+    }
+    err = daemon_run(&daemon);
     daemon_deinit(&daemon);
+    return err;
 }
