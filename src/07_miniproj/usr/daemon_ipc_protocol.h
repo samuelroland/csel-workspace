@@ -1,7 +1,7 @@
 #ifndef DAEMON_IPC_PROTOCOL_H
 #define DAEMON_IPC_PROTOCOL_H
 
-#define DAEMON_IPC_SOCKET_PATH "/run/mydaemon.sock"
+#define DAEMON_IPC_SOCKET_PATH "/run/fanctrl-daemon.sock"
 
 typedef enum {
     CMD_FREQ_UP     = 0x01,
