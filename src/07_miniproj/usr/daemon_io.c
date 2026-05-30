@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>
@@ -8,12 +7,12 @@
 
 #include "daemon.h"
 #include "daemon_key.h"
+#include "daemon_timer.h"
 
 typedef int (*key_op_cb_t)(daemon_t* daemon, int*);
 static void read_key_event(daemon_t* daemon, void* user_data);
+static void timer_done_cb(daemon_t* daemon, void* user_data);
 static int create_timer_event(daemon_t* daemon);
-static int rearm_timer(int timerfd, int period_ms);
-static void timer_done_event(daemon_t* daemon, void* user_data);
 
 int daemon_io_init(daemon_t* daemon)
 {
@@ -35,14 +34,6 @@ int daemon_io_init(daemon_t* daemon)
         goto timer_fd_err;
     }
     daemon_io->timer_fd = err;
-
-    {
-        err = create_timer_event(daemon);
-        if (err) {
-            perror("setup_timer");
-            goto add_timer_event_err;
-        }
-    }
 
     /* keys */
     struct {
@@ -85,7 +76,6 @@ key_create_err:
     for (size_t j = 0; j < i; ++j) {
         daemon_key_delete(keys[j].key);
     }
-add_timer_event_err:
     close(daemon->io.timer_fd);
 timer_fd_err:
     daemon_led_delete(&daemon_io->led_power);
@@ -111,22 +101,21 @@ static void read_key_event(daemon_t* daemon, void* user_data)
         daemon_led_set(&daemon->io.led_power, true);
         daemon_increase_frequency(daemon, NULL);
         create_timer_event(daemon);
-        rearm_timer(daemon->io.timer_fd, daemon->io.led_blink_period);
+        daemon_timer_rearm(daemon->io.timer_fd, daemon->io.led_blink_period);
     } else if (key == &daemon->io.key_slow_down) {
         daemon->io.led_blink_count  = LED_BLINK_COUNT_ON_DECREASE;
         daemon->io.led_blink_period = LED_BLINK_PERIOD_ON_DECREASE;
         daemon_led_set(&daemon->io.led_power, true);
         daemon_decrease_frequency(daemon, NULL);
         create_timer_event(daemon);
-        rearm_timer(daemon->io.timer_fd, daemon->io.led_blink_period);
+        daemon_timer_rearm(daemon->io.timer_fd, daemon->io.led_blink_period);
     } else {
         daemon_toggle_mode(daemon, NULL);
     }
 }
 
-static void timer_done_event(daemon_t* daemon, void* user_data)
+static void timer_done_cb(daemon_t* daemon, void* user_data)
 {
-    printf("Timer done event\n");
     (void)user_data;
     if (daemon->io.led_blink_count == 0) {
         daemon_remove_event(daemon, daemon->io.timer_fd);
@@ -135,34 +124,11 @@ static void timer_done_event(daemon_t* daemon, void* user_data)
     }
     daemon_led_toggle(&daemon->io.led_power);
     daemon->io.led_blink_count--;
-    rearm_timer(daemon->io.timer_fd, daemon->io.led_blink_period);
+    daemon_timer_rearm(daemon->io.timer_fd, daemon->io.led_blink_period);
 }
 
 static int create_timer_event(daemon_t* daemon)
 {
-    daemon_event_ctx_t timer_event = {.events     = EPOLLIN,
-                                      .fd         = daemon->io.timer_fd,
-                                      .cb         = timer_done_event,
-                                      .event_data = NULL};
-
-    /* ensure only one event exists at a time*/
-    daemon_remove_event(daemon, daemon->io.timer_fd);
-    return daemon_add_event(daemon, timer_event);
-}
-
-static int rearm_timer(int timerfd, int period_ms)
-{
-    struct itimerspec its = {
-        .it_interval = {0, 0},
-        .it_value =
-            {
-                .tv_sec  = period_ms / 1000,
-                .tv_nsec = (period_ms % 1000) * 1000000L,
-            },
-    };
-    if (timerfd_settime(timerfd, 0, &its, NULL) < 0) {
-        perror("timerfd_settime");
-        return -errno;
-    }
-    return 0;
+    return daemon_timer_create_event(
+        daemon, daemon->io.timer_fd, timer_done_cb);
 }

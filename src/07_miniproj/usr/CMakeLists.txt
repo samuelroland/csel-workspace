@@ -13,6 +13,7 @@ set(DAEMON_SOURCES
     daemon_key.c
     daemon_led.c
     daemon_main.c
+    daemon_timer.c
     gpio.c)
 
 add_executable(daemon ${DAEMON_SOURCES})
