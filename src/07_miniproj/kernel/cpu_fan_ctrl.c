@@ -6,6 +6,8 @@
 #define DRIVER_NAME "cpu-fan-ctrl"
 
 #define GPIO_LED 10
+#define TEMPERATURE_FACTOR 1000
+
 static const char* led_name = "gpio_a.10-led";
 
 /* driver data structures */
@@ -41,14 +43,17 @@ static void temperature_work_callback(struct work_struct* work)
         container_of(work, struct dev_data, temperature_work.work);
     int temperature;
 
-    if (thermal_zone_get_temp(dd->tzd, &temperature) == 0) {
-        atomic_set(&dd->temperature, temperature_to_hz(temperature));
+    if (thermal_zone_get_temp(dd->tzd, &temperature)) {
+        schedule_delayed_work(&dd->temperature_work, HZ);
+        return;
     }
 
+    temperature /= TEMPERATURE_FACTOR;
+
+    atomic_set(&dd->temperature, temperature);
     if (atomic_read(&dd->mode) == MODE_AUTO) {
         atomic_set(&dd->hz, temperature_to_hz(temperature));
     }
-
     schedule_delayed_work(&dd->temperature_work, HZ);
 }
 
