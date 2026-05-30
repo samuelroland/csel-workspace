@@ -81,17 +81,15 @@ timer_fd_err:
     daemon_led_delete(&daemon_io->led_power);
     return err;
 }
-int daemon_io_deinit(daemon_io_t* daemon_io)
+void daemon_io_deinit(daemon_io_t* daemon_io)
 {
     daemon_key_delete(&daemon_io->key_speed_up);
     daemon_key_delete(&daemon_io->key_slow_down);
     daemon_key_delete(&daemon_io->key_mode);
-    return 0;
 }
 
 static void read_key_event(daemon_t* daemon, void* user_data)
 {
-    printf("Key pressed event\n");
     daemon_key_t* key = (daemon_key_t*)user_data;
     /* always read the key to reset epoll event */
     daemon_key_read(key);

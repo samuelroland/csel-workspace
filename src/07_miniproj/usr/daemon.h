@@ -61,7 +61,7 @@ int daemon_ipc_init(daemon_t* daemon);
 void daemon_ipc_deinit(daemon_ipc_t* ipc);
 
 int daemon_io_init(daemon_t* daemon);
-int daemon_io_deinit(daemon_io_t* daemon_io);
+void daemon_io_deinit(daemon_io_t* daemon_io);
 
 int daemon_increase_frequency(daemon_t* daemon, int* new_freq);
 int daemon_decrease_frequency(daemon_t* daemon, int* new_freq);
