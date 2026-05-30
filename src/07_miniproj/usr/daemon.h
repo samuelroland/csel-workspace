@@ -2,6 +2,7 @@
 #define DAEMON_H
 
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "daemon_key.h"
@@ -9,12 +10,23 @@
 
 struct daemon;
 
+#define LED_BLINK_TIME (1000)
+#define LED_BLINK_PERIOD_ON_INCREASE (100)
+#define LED_BLINK_PERIOD_ON_DECREASE (200)
+
+#define LED_BLINK_COUNT_ON_INCREASE \
+    (LED_BLINK_TIME / LED_BLINK_PERIOD_ON_INCREASE)
+#define LED_BLINK_COUNT_ON_DECREASE \
+    (LED_BLINK_TIME / LED_BLINK_PERIOD_ON_DECREASE)
+
 typedef struct {
     daemon_key_t key_speed_up;
     daemon_key_t key_slow_down;
     daemon_key_t key_mode;
     daemon_led_t led_power;
     int timer_fd;
+    int32_t led_blink_count;
+    uint32_t led_blink_period;
 } daemon_io_t;
 
 typedef struct {

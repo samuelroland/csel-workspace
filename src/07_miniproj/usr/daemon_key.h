@@ -9,6 +9,9 @@
 #define K2 "2"
 #define K3 "3"
 
+/* Bank L Pin 10, 32 pins per bank */
+#define LED_POWER "362"
+
 typedef struct {
     gpio_t io;
 } daemon_key_t;
