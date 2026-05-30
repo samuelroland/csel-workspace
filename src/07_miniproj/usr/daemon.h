@@ -33,6 +33,13 @@ typedef struct {
     int server_fd;
 } daemon_ipc_t;
 
+typedef struct {
+    int timer_fd;
+    int last_temperature;
+    int last_mode;
+    int last_frequency;
+} daemon_screen_t;
+
 typedef void (*daemon_event_cb)(struct daemon* daemon, void* event_data);
 
 typedef struct {
@@ -45,6 +52,7 @@ typedef struct {
 typedef struct daemon {
     daemon_io_t io;
     daemon_ipc_t ipc;
+    daemon_screen_t screen;
     int epfd;
     int mode_fd;
     int freq_fd;
@@ -63,6 +71,9 @@ void daemon_ipc_deinit(daemon_ipc_t* ipc);
 
 int daemon_io_init(daemon_t* daemon);
 void daemon_io_deinit(daemon_io_t* daemon_io);
+
+int daemon_screen_init(daemon_t* daemon);
+void daemon_screen_deinit(daemon_screen_t* daemon_io);
 
 int daemon_increase_frequency(daemon_t* daemon, int* new_freq);
 int daemon_decrease_frequency(daemon_t* daemon, int* new_freq);
