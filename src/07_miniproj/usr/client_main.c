@@ -83,7 +83,7 @@ void print_usage(const char* prog_name)
     printf("  Interactive mode:  %s -i\n", prog_name);
 }
 
-void run_interactive_mode()
+void run_interactive_mode(void)
 {
     char input[256];
     printf("--- Fan Control Daemon CLI Interactive Mode ---\n");
