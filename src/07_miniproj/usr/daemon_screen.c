@@ -31,9 +31,9 @@ int daemon_screen_init(daemon_t* daemon)
 
     ssd1306_clear_display();
     ssd1306_set_position(0, 0);
-    ssd1306_puts("CSEL1a - SP.07");
+    ssd1306_puts("CSEL");
     ssd1306_set_position(0, 1);
-    ssd1306_puts("  Demo - SW");
+    ssd1306_puts(" CPU Fan Control");
     ssd1306_set_position(0, 2);
     ssd1306_puts("--------------");
     ssd1306_set_position(0, 6);
