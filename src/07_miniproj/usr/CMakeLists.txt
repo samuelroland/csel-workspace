@@ -7,7 +7,7 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 add_subdirectory(ssd1306)
-add_executable(client client_main.c)
+add_executable(fanctrl_client client_main.c)
 
 set(DAEMON_SOURCES
     daemon.c
@@ -20,9 +20,9 @@ set(DAEMON_SOURCES
     daemon_timer.c
     gpio.c)
 
-add_executable(daemon ${DAEMON_SOURCES})
-target_link_libraries(daemon PRIVATE ssd1306)
+add_executable(fanctrl_daemon ${DAEMON_SOURCES})
+target_link_libraries(fanctrl_daemon PRIVATE ssd1306)
 
-target_compile_definitions(daemon PRIVATE _GNU_SOURCE)
-target_compile_options(daemon PRIVATE -Wall -Wextra -Wpedantic)
-target_compile_options(client PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(fanctrl_daemon PRIVATE _GNU_SOURCE)
+target_compile_options(fanctrl_daemon PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(fanctrl_client PRIVATE -Wall -Wextra -Wpedantic)
