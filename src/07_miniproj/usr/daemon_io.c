@@ -10,42 +10,46 @@ int daemon_io_init(daemon_t* daemon)
 {
     daemon_io_t* daemon_io = &daemon->io;
 
-    int err = daemon_key_create(K1, &daemon_io->key_speed_up);
-    if (err) {
-        return err;
-    }
-    err = daemon_key_create(K2, &daemon_io->key_slow_down);
-    if (err) {
-        daemon_key_delete(&daemon_io->key_speed_up);
-        return err;
-    }
-    err = daemon_key_create(K3, &daemon_io->key_mode);
-    if (err) {
-        daemon_key_delete(&daemon_io->key_speed_up);
-        daemon_key_delete(&daemon_io->key_slow_down);
-        return err;
-    }
+    struct {
+        const char* name;
+        daemon_key_t* key;
+    } keys[] = {{.name = K1, .key = &daemon_io->key_speed_up},
+                {.name = K2, .key = &daemon_io->key_speed_up},
+                {.name = K3, .key = &daemon_io->key_speed_up}};
 
-    daemon_event_ctx_t ctx[] = {
-        {.events     = EPOLLERR,
-         .fd         = daemon_key_get_fd(&daemon->io.key_speed_up),
-         .cb         = read_key_event,
-         .event_data = &daemon->io.key_speed_up},
-        {.events     = EPOLLERR,
-         .fd         = daemon_key_get_fd(&daemon->io.key_slow_down),
-         .cb         = read_key_event,
-         .event_data = &daemon->io.key_slow_down},
-        {.events     = EPOLLERR,
-         .fd         = daemon_key_get_fd(&daemon->io.key_mode),
-         .cb         = read_key_event,
-         .event_data = &daemon->io.key_mode},
-    };
+    const size_t key_count = sizeof(keys) / sizeof(keys[0]);
 
-    const size_t ctx_count = sizeof(ctx) / sizeof(ctx[0]);
-    for (size_t i = 0; i < ctx_count; ++i) {
-        /* read so it doesn' trigger on start*/
-        daemon_key_read(ctx[i].event_data);
-        daemon_add_event(daemon, ctx[i]);
+    for (size_t i = 0; i < key_count; ++i) {
+        int err = daemon_key_create(keys[i].name, keys[i].key);
+        if (err) {
+            goto key_create_err;
+        }
+
+        /* dummy read so it doesn' trigger on start*/
+        (void)daemon_key_read(keys[i].key);
+
+        daemon_event_ctx_t ev_ctx = {.events = EPOLLERR,
+                                     .fd     = daemon_key_get_fd(keys[i].key),
+                                     .cb     = read_key_event,
+                                     .event_data = keys[i].key};
+
+        err = daemon_add_event(daemon, ev_ctx);
+        if (err) {
+            goto add_event_err;
+        }
+        continue;
+
+    add_event_err:
+        for (size_t j = 0; j < i; ++j) {
+            daemon_remove_event(daemon, daemon_key_get_fd(keys[i].key));
+        }
+        daemon_key_delete(keys[i].key);
+    key_create_err:
+
+        for (size_t j = 0; j < i; ++j) {
+            daemon_key_delete(keys[j].key);
+        }
+        return err;
     }
 
     return 0;
