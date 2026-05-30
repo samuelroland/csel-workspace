@@ -23,7 +23,7 @@
 
 #show raw: text.with(size: 0.8em)
 
-#align(center, text(size: 30pt)[Labos CSEL1 - partie 1 - 2026])
+#align(center, text(size: 30pt)[Mini Projet CSEL1 - 2026])
 
 #text(size: 17pt)[Groupe: André Costa et Samuel Roland]
 
