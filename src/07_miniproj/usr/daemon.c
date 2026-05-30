@@ -198,9 +198,9 @@ int daemon_get_frequency(daemon_t* daemon, int* frequency)
     return read_int(daemon->freq_fd, frequency);
 }
 
-int daemon_get_temperature(daemon_t* daemon, int* frequency)
+int daemon_get_temperature(daemon_t* daemon, int* temperature)
 {
-    return read_int(daemon->temp_fd, frequency);
+    return read_int(daemon->temp_fd, temperature);
 }
 int daemon_increase_frequency(daemon_t* daemon, int* new_freq)
 {
