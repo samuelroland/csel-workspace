@@ -1,0 +1,23 @@
+#!/bin/sh
+
+case "$1" in
+    start)
+        echo "Loading cpu-fan-ctrl module..."
+        insmod /opt/cpu-fan-ctrl/cpu_fan_ctrl.ko
+        echo "Starting cpu-fan-ctrl daemon..."
+        /bin/sh -c '/opt/cpu-fan-ctrl/fanctrl_daemon 2>&1 | logger -t fan-ctrl-daemon' &
+        ;;
+    stop)
+        echo "Stopping cpu-fan-ctrl daemon..."
+        killall fanctrl_daemon
+        rmmod cpu_fan_ctrl
+        ;;
+    restart)
+        $0 stop
+        $0 start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
